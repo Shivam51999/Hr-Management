@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mangalam HR Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
     --navy:#1A3F6F;
@@ -599,6 +600,77 @@
     .form-grid-2{grid-template-columns:1fr;}
   }
 
+  /* ===== ANALYTICS SUB-TABS ===== */
+  .sub-tab-bar{
+    display:flex;
+    gap:6px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+  }
+  .sub-tab-btn{
+    font-family:var(--font-body);
+    font-size:12.5px;
+    font-weight:600;
+    padding:9px 16px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--charcoal-soft);
+    cursor:pointer;
+  }
+  .sub-tab-btn:hover{border-color:var(--navy);}
+  .sub-tab-btn.active{
+    background:var(--navy);
+    border-color:var(--navy);
+    color:#fff;
+  }
+  .sub-tab-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  .sub-view{display:none;}
+  .sub-view.active{display:block;}
+
+  /* ===== CHART CONTAINERS ===== */
+  .chart-wrap{
+    position:relative;
+    height:340px;
+    width:100%;
+  }
+  .chart-wrap-small{height:260px;}
+
+  /* ===== RISK BADGES ===== */
+  .badge-risk-high{background:#FDEBEB; color:var(--red);}
+  .badge-risk-high .dot{background:var(--red);}
+  .badge-risk-medium{background:#FBF3E2; color:var(--gold);}
+  .badge-risk-medium .dot{background:var(--gold);}
+  .badge-risk-low{background:#E8F3F0; color:var(--teal);}
+  .badge-risk-low .dot{background:var(--teal);}
+
+  .reasons-list{
+    margin:0;
+    padding-left:16px;
+    font-size:12px;
+    color:var(--charcoal-soft);
+  }
+  .reasons-list li{margin-bottom:2px;}
+
+  .status-pill-row{
+    display:flex;
+    gap:6px;
+    align-items:center;
+  }
+  .mini-bar-track{
+    width:100%;
+    height:6px;
+    border-radius:3px;
+    background:var(--line-soft);
+    overflow:hidden;
+    margin-top:6px;
+  }
+  .mini-bar-fill{
+    height:100%;
+    border-radius:3px;
+  }
+
   @media (max-width: 720px){
     .app-header{padding:14px 16px;flex-wrap:wrap;gap:10px;}
     .content{padding:20px 16px 50px;}
@@ -624,6 +696,7 @@
 <nav class="tab-bar" id="tabBar">
   <button class="tab-btn active" data-view="overview">Overview</button>
   <button class="tab-btn" data-view="people">People Explorer</button>
+  <button class="tab-btn" data-view="analytics">Analytics</button>
   <button class="tab-btn" data-view="critical">Compliance &amp; Critical Watch</button>
   <button class="tab-btn" data-view="events">Events &amp; Budget</button>
   <button class="tab-btn" data-view="financials">Financials</button>
@@ -681,6 +754,141 @@
       </div>
       <div class="table-scroll" id="peopleTableWrap">
         <div class="loading-state"><div class="spinner"></div>Loading employees…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ANALYTICS ================= -->
+  <section class="view" id="view-analytics">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Analytics</h1>
+        <div class="view-sub">Compensation bands, attrition risk, workforce planning, and compliance trend</div>
+      </div>
+    </div>
+
+    <div class="sub-tab-bar">
+      <button class="sub-tab-btn active" data-subview="comp">Compensation</button>
+      <button class="sub-tab-btn" data-subview="risk">Attrition Risk</button>
+      <button class="sub-tab-btn" data-subview="workforce">Workforce Planning</button>
+      <button class="sub-tab-btn" data-subview="compliance">Compliance Health</button>
+    </div>
+
+    <!-- COMPENSATION SUB-VIEW -->
+    <div class="sub-view active" id="subview-comp">
+      <div id="compGate"></div>
+      <div id="compContent" style="display:none;">
+        <div class="stat-grid" id="compCoverageStats"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Salary by Designation — Min / Median / Max</div>
+          </div>
+          <div class="panel-body padded">
+            <div class="chart-wrap"><canvas id="chartCompDesignation"></canvas></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Salary by Department — Min / Median / Max</div>
+          </div>
+          <div class="panel-body padded">
+            <div class="chart-wrap"><canvas id="chartCompDepartment"></canvas></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Designation Salary Bands — Detail</div></div>
+          <div class="table-scroll" id="compDesigTableWrap"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Department Salary Bands — Detail</div></div>
+          <div class="table-scroll" id="compDeptTableWrap"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Pay Outliers</div>
+            <div class="view-sub" style="margin:0;">±25% from designation median</div>
+          </div>
+          <div class="table-scroll" id="compOutlierTableWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTRITION RISK SUB-VIEW -->
+    <div class="sub-view" id="subview-risk">
+      <div id="riskDataNote"></div>
+      <div class="stat-grid" id="riskStats"></div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Risk Distribution</div>
+        </div>
+        <div class="panel-body padded">
+          <div class="chart-wrap chart-wrap-small"><canvas id="chartRiskDistribution"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Flight Risk Shortlist</div>
+          <div class="view-sub" style="margin:0;">Medium and High risk, sorted by score</div>
+        </div>
+        <div class="table-scroll" id="riskShortlistWrap">
+          <div class="loading-state"><div class="spinner"></div>Loading risk scores…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKFORCE PLANNING SUB-VIEW -->
+    <div class="sub-view" id="subview-workforce">
+      <div class="stat-grid" id="workforceStats"></div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Headcount: Budgeted vs Actual</div></div>
+        <div class="panel-body padded">
+          <div class="chart-wrap"><canvas id="chartHeadcountGap"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Headcount Gap — Detail</div></div>
+        <div class="table-scroll" id="headcountGapWrap">
+          <div class="loading-state"><div class="spinner"></div>Loading workforce data…</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Span of Control Outliers</div>
+          <div class="view-sub" style="margin:0;">Managers far above/below the average direct-report count</div>
+        </div>
+        <div class="table-scroll" id="spanOutlierWrap"></div>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE HEALTH SUB-VIEW -->
+    <div class="sub-view" id="subview-compliance">
+      <div class="stat-grid" id="complianceHealthStats"></div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Status Mix by Tag</div></div>
+        <div class="panel-body padded">
+          <div class="chart-wrap chart-wrap-small"><canvas id="chartComplianceByTag"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Chronically Late Items</div>
+          <div class="view-sub" style="margin:0;">Recurring items currently 7+ days overdue</div>
+        </div>
+        <div class="table-scroll" id="chronicLateWrap">
+          <div class="loading-state"><div class="spinner"></div>Loading compliance data…</div>
+        </div>
       </div>
     </div>
   </section>
@@ -1272,6 +1480,7 @@ function loadViewData(view) {
   switch (view) {
     case 'overview': loadOverview(); break;
     case 'people': loadPeople(); break;
+    case 'analytics': loadAnalyticsActiveSubview(); break;
     case 'critical': loadCritical(); break;
     case 'events': loadEvents(); break;
     case 'financials': loadFinancials(); break;
@@ -1675,6 +1884,369 @@ async function loadAttrition() {
       </table>`;
   } catch (err) {
     wrap.innerHTML = `<div class="error-state">Could not load attrition data. ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+/* ============== ANALYTICS: SUB-TAB NAVIGATION ============== */
+let analyticsLoaded = { comp: false, risk: false, workforce: false, compliance: false };
+let activeAnalyticsSubview = 'comp';
+const chartInstances = {};
+
+document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const sub = btn.dataset.subview;
+    activeAnalyticsSubview = sub;
+    document.querySelectorAll('.sub-view').forEach(v => v.classList.remove('active'));
+    document.getElementById('subview-' + sub).classList.add('active');
+    loadAnalyticsSubview(sub);
+  });
+});
+
+function loadAnalyticsActiveSubview() {
+  loadAnalyticsSubview(activeAnalyticsSubview);
+}
+
+function loadAnalyticsSubview(sub) {
+  if (analyticsLoaded[sub]) return;
+  analyticsLoaded[sub] = true;
+  if (sub === 'comp') loadCompensationAnalytics();
+  if (sub === 'risk') loadAttritionRisk();
+  if (sub === 'workforce') loadWorkforcePlanning();
+  if (sub === 'compliance') loadComplianceHealth();
+}
+
+function destroyChart(id) {
+  if (chartInstances[id]) {
+    chartInstances[id].destroy();
+    delete chartInstances[id];
+  }
+}
+
+const CHART_COLORS = {
+  navy: '#1A3F6F',
+  teal: '#0F6E56',
+  gold: '#B8922A',
+  red: '#E83131',
+  charcoalSoft: '#6b6b6b'
+};
+
+/* --- COMPENSATION ANALYTICS --- */
+async function loadCompensationAnalytics() {
+  const gate = document.getElementById('compGate');
+  const content = document.getElementById('compContent');
+  gate.innerHTML = '';
+  content.style.display = 'none';
+
+  try {
+    const data = await apiGet('getCompensationAnalytics');
+    if (data && data.error) {
+      gate.innerHTML = `<div class="panel"><div class="panel-body padded" style="text-align:center;color:var(--charcoal-soft);">${lockedField()}<div style="margin-top:8px;">Compensation analytics are restricted to CEO, COO, and VP-HR access tokens.</div></div></div>`;
+      analyticsLoaded.comp = false;
+      return;
+    }
+
+    content.style.display = '';
+
+    document.getElementById('compCoverageStats').innerHTML = `
+      <div class="stat-card" style="--rail-color:var(--navy)">
+        <div class="stat-label">Employees w/ Comp Data</div>
+        <div class="stat-value">${data.coverage.employees_with_comp_data}<span class="unit"> / ${data.coverage.total_employees}</span></div>
+      </div>
+      <div class="stat-card" style="--rail-color:var(--red)">
+        <div class="stat-label">Pay Outliers</div>
+        <div class="stat-value">${data.outliers.length}</div>
+      </div>
+    `;
+
+    renderSalaryBandChart('chartCompDesignation', data.by_designation);
+    renderSalaryBandChart('chartCompDepartment', data.by_department);
+
+    document.getElementById('compDesigTableWrap').innerHTML = renderSalaryBandTable(data.by_designation, 'Designation');
+    document.getElementById('compDeptTableWrap').innerHTML = renderSalaryBandTable(data.by_department, 'Department');
+
+    const outlierRows = data.outliers.map(o => {
+      const direction = o.CTC > o.Designation_Median ? 'above' : 'below';
+      const badgeClass = direction === 'above' ? 'badge-warning' : 'badge-critical';
+      return `
+        <tr class="row-rail ${direction === 'above' ? 'rail-warning' : 'rail-critical'}">
+          <td style="font-weight:600;">${escapeHtml(o.Name)}</td>
+          <td>${escapeHtml(o.Designation)}</td>
+          <td>${escapeHtml(o.Department)}</td>
+          <td>₹${o.CTC.toLocaleString('en-IN')}</td>
+          <td>₹${o.Designation_Median.toLocaleString('en-IN')}</td>
+          <td><span class="badge ${badgeClass}"><span class="dot"></span>${o.Compa_Ratio}% of median</span></td>
+        </tr>`;
+    }).join('');
+    document.getElementById('compOutlierTableWrap').innerHTML = `
+      <table>
+        <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>CTC</th><th>Designation Median</th><th>Compa-ratio</th></tr></thead>
+        <tbody>${outlierRows || renderEmptyRow(6, 'No pay outliers detected — all salaries within 25% of their designation median.')}</tbody>
+      </table>`;
+  } catch (err) {
+    gate.innerHTML = `<div class="error-state">Could not load compensation analytics. ${escapeHtml(err.message)}</div>`;
+    analyticsLoaded.comp = false;
+  }
+}
+
+function renderSalaryBandChart(canvasId, groupedStats) {
+  destroyChart(canvasId);
+  const labels = Object.keys(groupedStats);
+  const mins = labels.map(l => groupedStats[l].min);
+  const medians = labels.map(l => groupedStats[l].median);
+  const maxs = labels.map(l => groupedStats[l].max);
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Min', data: mins, backgroundColor: CHART_COLORS.charcoalSoft },
+        { label: 'Median', data: medians, backgroundColor: CHART_COLORS.navy },
+        { label: 'Max', data: maxs, backgroundColor: CHART_COLORS.gold }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { font: { family: 'Calibri', size: 11 } } },
+        y: { ticks: { callback: v => '₹' + (v / 1000) + 'k' } }
+      },
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ₹' + ctx.raw.toLocaleString('en-IN') } }
+      }
+    }
+  });
+}
+
+function renderSalaryBandTable(groupedStats, labelHeader) {
+  const rows = Object.entries(groupedStats)
+    .sort((a, b) => b[1].median - a[1].median)
+    .map(([key, s]) => `
+      <tr class="row-rail">
+        <td style="font-weight:600;">${escapeHtml(key)}</td>
+        <td>${s.count}</td>
+        <td>₹${s.min.toLocaleString('en-IN')}</td>
+        <td>₹${s.median.toLocaleString('en-IN')}</td>
+        <td>₹${s.average.toLocaleString('en-IN')}</td>
+        <td>₹${s.max.toLocaleString('en-IN')}</td>
+      </tr>`).join('');
+  return `
+    <table>
+      <thead><tr><th>${labelHeader}</th><th>Count</th><th>Min</th><th>Median</th><th>Average</th><th>Max</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(6, 'No compensation data entered yet.')}</tbody>
+    </table>`;
+}
+
+/* --- ATTRITION RISK --- */
+async function loadAttritionRisk() {
+  const noteEl = document.getElementById('riskDataNote');
+  const statsEl = document.getElementById('riskStats');
+  const wrap = document.getElementById('riskShortlistWrap');
+  noteEl.innerHTML = '';
+  wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading risk scores…</div>`;
+
+  try {
+    const data = await apiGet('getAttritionRiskScores');
+
+    if (!data.happiness_data_available) {
+      noteEl.innerHTML = `<div class="alert-banner" style="background:#FBF3E2;border-color:#F0DCAF;color:#8a6d1f;"><span style="font-size:13px;">Happiness Tracker data could not be reached (${escapeHtml(data.happiness_data_error || 'unknown error')}). Risk scores below use HR Tool data only and may be incomplete.</span></div>`;
+    }
+
+    const high = data.scored_employees.filter(s => s.Risk_Level === 'High').length;
+    const medium = data.scored_employees.filter(s => s.Risk_Level === 'Medium').length;
+    const low = data.scored_employees.filter(s => s.Risk_Level === 'Low').length;
+
+    statsEl.innerHTML = `
+      <div class="stat-card" style="--rail-color:var(--red)"><div class="stat-label">High Risk</div><div class="stat-value">${high}</div></div>
+      <div class="stat-card" style="--rail-color:var(--gold)"><div class="stat-label">Medium Risk</div><div class="stat-value">${medium}</div></div>
+      <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Low Risk</div><div class="stat-value">${low}</div></div>
+      <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Shortlist Size</div><div class="stat-value">${data.flight_risk_shortlist.length}</div></div>
+    `;
+
+    destroyChart('chartRiskDistribution');
+    const ctx = document.getElementById('chartRiskDistribution').getContext('2d');
+    chartInstances['chartRiskDistribution'] = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['High', 'Medium', 'Low'],
+        datasets: [{ data: [high, medium, low], backgroundColor: [CHART_COLORS.red, CHART_COLORS.gold, CHART_COLORS.teal] }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Calibri', size: 12 } } } }
+      }
+    });
+
+    const rows = data.flight_risk_shortlist.map(s => {
+      const badgeClass = s.Risk_Level === 'High' ? 'badge-risk-high' : 'badge-risk-medium';
+      const railClass = s.Risk_Level === 'High' ? 'rail-critical' : 'rail-warning';
+      const barColor = s.Risk_Level === 'High' ? 'var(--red)' : 'var(--gold)';
+      const reasonsList = s.Reasons.length
+        ? `<ul class="reasons-list">${s.Reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>`
+        : '<span style="color:var(--charcoal-soft);font-size:12px;">—</span>';
+      return `
+        <tr class="row-rail ${railClass}">
+          <td style="font-weight:600;">${escapeHtml(s.Name)}</td>
+          <td>${escapeHtml(s.Designation)}</td>
+          <td>${escapeHtml(s.Department)}</td>
+          <td>${escapeHtml(s.Manager) || '—'}</td>
+          <td>
+            <span class="badge ${badgeClass}"><span class="dot"></span>${s.Risk_Score}</span>
+            <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${s.Risk_Score}%;background:${barColor};"></div></div>
+          </td>
+          <td>${reasonsList}</td>
+        </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>Manager</th><th>Risk score</th><th>Reasons</th></tr></thead>
+        <tbody>${rows || renderEmptyRow(6, 'No employees currently flagged at Medium or High attrition risk.')}</tbody>
+      </table>`;
+  } catch (err) {
+    wrap.innerHTML = `<div class="error-state">Could not load attrition risk scores. ${escapeHtml(err.message)}</div>`;
+    analyticsLoaded.risk = false;
+  }
+}
+
+/* --- WORKFORCE PLANNING --- */
+async function loadWorkforcePlanning() {
+  const statsEl = document.getElementById('workforceStats');
+  const gapWrap = document.getElementById('headcountGapWrap');
+  const spanWrap = document.getElementById('spanOutlierWrap');
+  gapWrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading workforce data…</div>`;
+
+  try {
+    const data = await apiGet('getWorkforcePlanning');
+
+    const understaffed = data.headcount_gap.filter(g => g.Status === 'Understaffed').length;
+    const overstaffed = data.headcount_gap.filter(g => g.Status === 'Overstaffed').length;
+
+    statsEl.innerHTML = `
+      <div class="stat-card" style="--rail-color:var(--red)"><div class="stat-label">Understaffed Depts</div><div class="stat-value">${understaffed}</div></div>
+      <div class="stat-card" style="--rail-color:var(--gold)"><div class="stat-label">Overstaffed Depts</div><div class="stat-value">${overstaffed}</div></div>
+      <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Avg Span of Control</div><div class="stat-value">${data.span_of_control_average}</div></div>
+      <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Span Outliers</div><div class="stat-value">${data.span_of_control_outliers.length}</div></div>
+    `;
+
+    if (data.headcount_gap.length > 0) {
+      destroyChart('chartHeadcountGap');
+      const ctx = document.getElementById('chartHeadcountGap').getContext('2d');
+      chartInstances['chartHeadcountGap'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.headcount_gap.map(g => g.Department),
+          datasets: [
+            { label: 'Budgeted', data: data.headcount_gap.map(g => g.Headcount_Budgeted), backgroundColor: CHART_COLORS.charcoalSoft },
+            { label: 'Actual', data: data.headcount_gap.map(g => g.Headcount_Actual), backgroundColor: CHART_COLORS.navy }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } } }
+        }
+      });
+    } else {
+      document.getElementById('chartHeadcountGap').parentElement.innerHTML = `<div class="loading-state">No Org_Budget headcount data entered yet — add Headcount_Budgeted values to see this chart.</div>`;
+    }
+
+    const gapRows = data.headcount_gap.map(g => {
+      const badgeClass = g.Status === 'Understaffed' ? 'badge-critical' : g.Status === 'Overstaffed' ? 'badge-warning' : 'badge-ok';
+      return `
+        <tr class="row-rail">
+          <td style="font-weight:600;">${escapeHtml(g.Department)}</td>
+          <td>${escapeHtml(g.FY)}</td>
+          <td>${g.Headcount_Budgeted}</td>
+          <td>${g.Headcount_Actual}</td>
+          <td><span class="badge ${badgeClass}"><span class="dot"></span>${g.Gap > 0 ? '+' : ''}${g.Gap}</span></td>
+        </tr>`;
+    }).join('');
+    gapWrap.innerHTML = `
+      <table>
+        <thead><tr><th>Department</th><th>FY</th><th>Budgeted</th><th>Actual</th><th>Gap</th></tr></thead>
+        <tbody>${gapRows || renderEmptyRow(5, 'No Org_Budget headcount data entered yet.')}</tbody>
+      </table>`;
+
+    const spanRows = data.span_of_control_outliers.map(s => `
+      <tr class="row-rail rail-warning">
+        <td style="font-weight:600;">${escapeHtml(s.Manager)}</td>
+        <td>${s.Direct_Reports}</td>
+        <td style="color:var(--charcoal-soft);">Average is ${data.span_of_control_average}</td>
+      </tr>`).join('');
+    spanWrap.innerHTML = `
+      <table>
+        <thead><tr><th>Manager</th><th>Direct reports</th><th>Note</th></tr></thead>
+        <tbody>${spanRows || renderEmptyRow(3, 'No span-of-control outliers detected.')}</tbody>
+      </table>`;
+  } catch (err) {
+    gapWrap.innerHTML = `<div class="error-state">Could not load workforce planning data. ${escapeHtml(err.message)}</div>`;
+    analyticsLoaded.workforce = false;
+  }
+}
+
+/* --- COMPLIANCE HEALTH --- */
+async function loadComplianceHealth() {
+  const statsEl = document.getElementById('complianceHealthStats');
+  const wrap = document.getElementById('chronicLateWrap');
+  wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading compliance data…</div>`;
+
+  try {
+    const data = await apiGet('getComplianceHealth');
+
+    const scoreDisplay = data.health_score_percent !== null ? data.health_score_percent + '%' : '—';
+    statsEl.innerHTML = `
+      <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">On-Time Filing Rate</div><div class="stat-value">${scoreDisplay}</div></div>
+      <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Closed Items</div><div class="stat-value">${data.closed_items_count}</div></div>
+      <div class="stat-card" style="--rail-color:var(--red)"><div class="stat-label">Chronically Late</div><div class="stat-value">${data.chronically_late_items.length}</div></div>
+    `;
+
+    const tags = Object.keys(data.by_tag);
+    if (tags.length > 0) {
+      destroyChart('chartComplianceByTag');
+      const ctx = document.getElementById('chartComplianceByTag').getContext('2d');
+      chartInstances['chartComplianceByTag'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: tags,
+          datasets: [
+            { label: 'On track', data: tags.map(t => data.by_tag[t].ok), backgroundColor: CHART_COLORS.teal },
+            { label: 'Warning', data: tags.map(t => data.by_tag[t].warning), backgroundColor: CHART_COLORS.gold },
+            { label: 'Critical', data: tags.map(t => data.by_tag[t].critical), backgroundColor: CHART_COLORS.red }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { x: { stacked: true }, y: { stacked: true } },
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } } }
+        }
+      });
+    }
+
+    const lateRows = data.chronically_late_items.map(i => `
+      <tr class="row-rail rail-critical">
+        <td><span class="tag-chip ${i.Tag === 'Bill' ? 'tag-bill' : 'tag-statutory'}">${escapeHtml(i.Tag)}</span></td>
+        <td style="font-weight:600;">${escapeHtml(i.Item_Name)}</td>
+        <td>${escapeHtml(i.Owner)}</td>
+        <td>${escapeHtml(i.Recurrence)}</td>
+        <td>${i.Days_Overdue} days overdue</td>
+      </tr>`).join('');
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Tag</th><th>Item</th><th>Owner</th><th>Recurrence</th><th>Overdue</th></tr></thead>
+        <tbody>${lateRows || renderEmptyRow(5, 'No chronically late recurring items right now.')}</tbody>
+      </table>`;
+  } catch (err) {
+    wrap.innerHTML = `<div class="error-state">Could not load compliance health data. ${escapeHtml(err.message)}</div>`;
+    analyticsLoaded.compliance = false;
   }
 }
 
