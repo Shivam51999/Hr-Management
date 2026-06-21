@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mangalam HR Tool</title>
+<style>
+  :root{
+    --navy:#1A3F6F;
+    --navy-dark:#122c50;
+    --charcoal:#3A3A3A;
+    --charcoal-soft:#6b6b6b;
+    --red:#E83131;
+    --gold:#B8922A;
+    --teal:#0F6E56;
+    --paper:#F7F6F3;
+    --card:#FFFFFF;
+    --line:#E4E1D9;
+    --line-soft:#EDEBE4;
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body: Calibri, 'Segoe UI', Arial, sans-serif;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--charcoal);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none;}
+
+  /* ===== HEADER ===== */
+  .app-header{
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    padding:18px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    z-index:50;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .brand-mark{
+    position:relative;
+    width:34px;
+    height:34px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .brand-mark .dot{
+    position:absolute;
+    top:0;
+    left:50%;
+    transform:translateX(-50%);
+    width:11px;
+    height:11px;
+    border-radius:50%;
+    background:var(--red);
+  }
+  .brand-mark .bar{
+    width:100%;
+    height:3px;
+    background:var(--charcoal);
+    margin-top:14px;
+  }
+  .brand-text{
+    font-family:var(--font-display);
+    font-size:22px;
+    letter-spacing:0.2px;
+    color:var(--charcoal);
+    line-height:1;
+  }
+  .brand-text small{
+    display:block;
+    font-family:var(--font-body);
+    font-size:10px;
+    letter-spacing:2.5px;
+    color:var(--charcoal-soft);
+    font-weight:600;
+    margin-top:4px;
+  }
+  .header-right{
+    display:flex;
+    align-items:center;
+    gap:18px;
+  }
+  .role-pill{
+    font-size:12px;
+    font-weight:600;
+    padding:6px 14px;
+    border-radius:20px;
+    background:var(--navy);
+    color:#fff;
+    letter-spacing:0.3px;
+  }
+  .token-input{
+    font-size:12px;
+    padding:7px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    width:180px;
+    font-family:var(--font-body);
+    background:var(--paper);
+  }
+  .token-input:focus{outline:2px solid var(--navy); outline-offset:1px;}
+  .btn-connect{
+    font-size:12px;
+    font-weight:600;
+    padding:8px 16px;
+    border-radius:6px;
+    border:1px solid var(--navy);
+    background:var(--navy);
+    color:#fff;
+    cursor:pointer;
+  }
+  .btn-connect:hover{background:var(--navy-dark);}
+  .btn-connect:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  /* ===== NAV TABS ===== */
+  .tab-bar{
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    padding:0 32px;
+    display:flex;
+    gap:4px;
+    overflow-x:auto;
+  }
+  .tab-btn{
+    border:none;
+    background:none;
+    font-family:var(--font-body);
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--charcoal-soft);
+    padding:14px 16px;
+    cursor:pointer;
+    border-bottom:3px solid transparent;
+    white-space:nowrap;
+    letter-spacing:0.2px;
+  }
+  .tab-btn:hover{color:var(--charcoal);}
+  .tab-btn.active{
+    color:var(--navy);
+    border-bottom-color:var(--red);
+  }
+  .tab-btn:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
+
+  /* ===== LAYOUT ===== */
+  .content{
+    max-width:1320px;
+    margin:0 auto;
+    padding:28px 32px 60px;
+  }
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .view-header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .view-title{
+    font-family:var(--font-display);
+    font-size:26px;
+    color:var(--charcoal);
+    margin:0;
+  }
+  .view-sub{
+    font-size:13px;
+    color:var(--charcoal-soft);
+    margin-top:4px;
+  }
+
+  /* ===== STAT CARDS ===== */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:14px;
+    margin-bottom:24px;
+  }
+  .stat-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .stat-card::before{
+    content:'';
+    position:absolute;
+    left:0;top:0;bottom:0;
+    width:4px;
+    background:var(--rail-color, var(--navy));
+  }
+  .stat-label{
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--charcoal-soft);
+    font-weight:600;
+  }
+  .stat-value{
+    font-family:var(--font-display);
+    font-size:30px;
+    color:var(--charcoal);
+    margin-top:6px;
+  }
+  .stat-value .unit{font-size:15px; color:var(--charcoal-soft); font-family:var(--font-body);}
+
+  /* ===== CARD / PANEL ===== */
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    margin-bottom:22px;
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:16px 20px;
+    border-bottom:1px solid var(--line-soft);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .panel-title{
+    font-family:var(--font-display);
+    font-size:17px;
+    color:var(--charcoal);
+  }
+  .panel-body{padding:0;}
+  .panel-body.padded{padding:18px 20px;}
+
+  /* ===== FILTER BAR ===== */
+  .filter-bar{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    padding:14px 20px;
+    border-bottom:1px solid var(--line-soft);
+    background:#FBFAF8;
+  }
+  .filter-bar select, .filter-bar input{
+    font-family:var(--font-body);
+    font-size:12.5px;
+    padding:7px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:#fff;
+    color:var(--charcoal);
+    min-width:130px;
+  }
+  .filter-bar input[type="text"]{min-width:180px;}
+  .filter-bar select:focus,.filter-bar input:focus{outline:2px solid var(--navy); outline-offset:1px;}
+  .filter-clear{
+    font-size:12px;
+    color:var(--navy);
+    font-weight:600;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:7px 4px;
+  }
+
+  /* ===== TABLE ===== */
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--charcoal-soft);
+    padding:10px 16px;
+    border-bottom:1px solid var(--line);
+    background:#FBFAF8;
+    position:sticky;
+    top:0;
+  }
+  tbody td{
+    padding:11px 16px;
+    border-bottom:1px solid var(--line-soft);
+    color:var(--charcoal);
+    vertical-align:middle;
+  }
+  tbody tr:hover{background:#FAFAF7;}
+  .table-scroll{max-height:520px; overflow:auto;}
+  .empty-row td{
+    text-align:center;
+    padding:40px 16px;
+    color:var(--charcoal-soft);
+    font-size:13px;
+  }
+
+  /* ===== STATUS / BADGES ===== */
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:11.5px;
+    font-weight:600;
+    padding:4px 10px;
+    border-radius:20px;
+    letter-spacing:0.2px;
+  }
+  .badge .dot{width:6px;height:6px;border-radius:50%;}
+  .badge-critical{background:#FDEBEB; color:var(--red);}
+  .badge-critical .dot{background:var(--red);}
+  .badge-warning{background:#FBF3E2; color:var(--gold);}
+  .badge-warning .dot{background:var(--gold);}
+  .badge-ok{background:#E8F3F0; color:var(--teal);}
+  .badge-ok .dot{background:var(--teal);}
+  .badge-neutral{background:#EEEDE9; color:var(--charcoal-soft);}
+  .badge-neutral .dot{background:var(--charcoal-soft);}
+
+  .row-rail{border-left:3px solid transparent;}
+  .rail-critical{border-left-color:var(--red);}
+  .rail-warning{border-left-color:var(--gold);}
+  .rail-ok{border-left-color:var(--teal);}
+
+  /* ===== LOCKED FIELD ===== */
+  .locked{
+    color:var(--charcoal-soft);
+    font-size:12px;
+    font-style:italic;
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+  }
+  .locked svg{width:11px;height:11px;opacity:0.6;}
+
+  /* ===== ALERT BANNER ===== */
+  .alert-banner{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:#FDEBEB;
+    border:1px solid #F6C6C6;
+    border-radius:var(--radius);
+    padding:14px 18px;
+    margin-bottom:20px;
+    color:#9c2222;
+    font-size:13.5px;
+  }
+  .alert-banner .dot-pulse{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--red);
+    flex-shrink:0;
+    animation:pulse 1.8s infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .alert-banner .dot-pulse{animation:none;}
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(232,49,49,0.45);}
+    70%{box-shadow:0 0 0 7px rgba(232,49,49,0);}
+    100%{box-shadow:0 0 0 0 rgba(232,49,49,0);}
+  }
+  .alert-banner strong{font-weight:700;}
+
+  /* ===== LOADING / EMPTY STATES ===== */
+  .loading-state, .error-state{
+    padding:50px 20px;
+    text-align:center;
+    color:var(--charcoal-soft);
+    font-size:13.5px;
+  }
+  .error-state{color:var(--red);}
+  .spinner{
+    width:22px;height:22px;
+    border:2.5px solid var(--line);
+    border-top-color:var(--navy);
+    border-radius:50%;
+    margin:0 auto 12px;
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ===== BUTTONS ===== */
+  .btn{
+    font-family:var(--font-body);
+    font-size:12.5px;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:6px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--charcoal);
+    cursor:pointer;
+  }
+  .btn:hover{background:#F4F3EF;}
+  .btn-primary{background:var(--navy); border-color:var(--navy); color:#fff;}
+  .btn-primary:hover{background:var(--navy-dark);}
+  .btn:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
+
+  select.status-select{
+    font-size:12px;
+    padding:5px 8px;
+    border-radius:6px;
+    border:1px solid var(--line);
+    background:#fff;
+  }
+
+  .tag-chip{
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:4px;
+    background:var(--navy);
+    color:#fff;
+    letter-spacing:0.3px;
+    text-transform:uppercase;
+  }
+  .tag-chip.tag-bill{background:var(--gold);}
+  .tag-chip.tag-statutory{background:var(--navy);}
+
+  footer.app-footer{
+    text-align:center;
+    padding:24px;
+    font-size:11.5px;
+    color:var(--charcoal-soft);
+    border-top:1px solid var(--line);
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(26,30,38,0.45);
+    display:none;
+    align-items:flex-start;
+    justify-content:center;
+    padding:40px 16px;
+    overflow-y:auto;
+    z-index:200;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--card);
+    border-radius:var(--radius);
+    width:100%;
+    max-width:520px;
+    box-shadow:0 14px 40px rgba(0,0,0,0.22);
+    margin-bottom:40px;
+  }
+  .modal-head{
+    padding:18px 22px;
+    border-bottom:1px solid var(--line-soft);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .modal-title{
+    font-family:var(--font-display);
+    font-size:18px;
+    color:var(--charcoal);
+  }
+  .modal-close{
+    background:none;
+    border:none;
+    font-size:20px;
+    line-height:1;
+    color:var(--charcoal-soft);
+    cursor:pointer;
+    padding:4px 6px;
+  }
+  .modal-close:hover{color:var(--charcoal);}
+  .modal-body{padding:20px 22px;}
+  .modal-foot{
+    padding:16px 22px;
+    border-top:1px solid var(--line-soft);
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+  }
+
+  .form-row{margin-bottom:14px;}
+  .form-row label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--charcoal-soft);
+    margin-bottom:5px;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+  }
+  .form-row .required{color:var(--red);}
+  .form-row input, .form-row select, .form-row textarea{
+    width:100%;
+    font-family:var(--font-body);
+    font-size:13.5px;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:var(--paper);
+    color:var(--charcoal);
+  }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus{
+    outline:2px solid var(--navy);
+    outline-offset:1px;
+    background:#fff;
+  }
+  .form-grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .form-error{
+    background:#FDEBEB;
+    color:#9c2222;
+    border:1px solid #F6C6C6;
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:12.5px;
+    margin-bottom:14px;
+    display:none;
+  }
+  .form-error.show{display:block;}
+  .form-success{
+    background:#E8F3F0;
+    color:var(--teal);
+    border:1px solid #BFE2D7;
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:12.5px;
+    margin-bottom:14px;
+    display:none;
+  }
+  .form-success.show{display:block;}
+
+  .btn-add{
+    font-family:var(--font-body);
+    font-size:12.5px;
+    font-weight:700;
+    padding:9px 16px;
+    border-radius:6px;
+    border:1px solid var(--navy);
+    background:var(--navy);
+    color:#fff;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .btn-add:hover{background:var(--navy-dark);}
+  .btn-add:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+  .btn-add svg{width:13px;height:13px;}
+
+  .btn:disabled, .btn-add:disabled, .btn-primary:disabled{
+    opacity:0.55;
+    cursor:not-allowed;
+  }
+
+  .write-locked-note{
+    font-size:12px;
+    color:var(--charcoal-soft);
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-style:italic;
+  }
+  .write-locked-note svg{width:11px;height:11px;opacity:0.6;}
+
+  .inline-status-form{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .inline-status-form select{
+    font-size:12px;
+    padding:5px 7px;
+    border-radius:6px;
+    border:1px solid var(--line);
+    background:#fff;
+  }
+  .save-spinner{
+    width:13px;height:13px;
+    border:2px solid rgba(255,255,255,0.4);
+    border-top-color:#fff;
+    border-radius:50%;
+    display:inline-block;
+    animation:spin 0.7s linear infinite;
+  }
+
+  @media (max-width: 720px){
+    .form-grid-2{grid-template-columns:1fr;}
+  }
+
+  @media (max-width: 720px){
+    .app-header{padding:14px 16px;flex-wrap:wrap;gap:10px;}
+    .content{padding:20px 16px 50px;}
+    .tab-bar{padding:0 16px;}
+    .token-input{width:120px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-mark"><span class="dot"></span><span class="bar"></span></div>
+    <div class="brand-text">Mangalam HR<small>HQ PEOPLE &amp; COMPLIANCE TOOL</small></div>
+  </div>
+  <div class="header-right">
+    <span class="role-pill" id="rolePill">Not connected</span>
+    <input type="password" class="token-input" id="tokenInput" placeholder="Access token">
+    <button class="btn-connect" id="connectBtn">Connect</button>
+  </div>
+</header>
+
+<nav class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-view="overview">Overview</button>
+  <button class="tab-btn" data-view="people">People Explorer</button>
+  <button class="tab-btn" data-view="critical">Compliance &amp; Critical Watch</button>
+  <button class="tab-btn" data-view="events">Events &amp; Budget</button>
+  <button class="tab-btn" data-view="financials">Financials</button>
+  <button class="tab-btn" data-view="attrition">Attrition</button>
+</nav>
+
+<main class="content">
+
+  <!-- ================= OVERVIEW ================= -->
+  <section class="view active" id="view-overview">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Overview</h1>
+        <div class="view-sub">Headcount, vacancies, and overdue items at a glance</div>
+      </div>
+      <button class="btn" onclick="loadOverview()">Refresh</button>
+    </div>
+
+    <div id="overviewAlert"></div>
+
+    <div class="stat-grid" id="overviewStats">
+      <div class="loading-state"><div class="spinner"></div>Loading overview…</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Headcount by Department</div>
+      </div>
+      <div class="panel-body" id="deptSummary">
+        <div class="loading-state"><div class="spinner"></div>Loading departments…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PEOPLE EXPLORER ================= -->
+  <section class="view" id="view-people">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">People Explorer</h1>
+        <div class="view-sub">Full employee roster — filterable by department, designation, and status</div>
+      </div>
+      <div id="addEmployeeAction"></div>
+    </div>
+
+    <div class="panel">
+      <div class="filter-bar">
+        <input type="text" id="peopleSearch" placeholder="Search name or ID…">
+        <select id="filterDept"><option value="">All departments</option></select>
+        <select id="filterDesig"><option value="">All designations</option></select>
+        <select id="filterFlag">
+          <option value="">All records</option>
+          <option value="flagged">Flagged only</option>
+        </select>
+        <button class="filter-clear" id="clearFilters">Clear filters</button>
+      </div>
+      <div class="table-scroll" id="peopleTableWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading employees…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CRITICAL / COMPLIANCE ================= -->
+  <section class="view" id="view-critical">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Compliance &amp; Critical Watch</h1>
+        <div class="view-sub">Recurring statutory, bill, and operational items — flags red at 7+ days overdue</div>
+      </div>
+      <div id="addCriticalAction"></div>
+    </div>
+
+    <div id="criticalAlert"></div>
+
+    <div class="panel">
+      <div class="filter-bar">
+        <select id="filterUrgency">
+          <option value="">All statuses</option>
+          <option value="critical">Critical (7+ days)</option>
+          <option value="warning">Warning (3–6 days)</option>
+          <option value="due">Due now</option>
+          <option value="normal">Not yet due / Closed</option>
+        </select>
+        <select id="filterTag">
+          <option value="">All tags</option>
+        </select>
+      </div>
+      <div class="table-scroll" id="criticalTableWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading critical tracker…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EVENTS & BUDGET ================= -->
+  <section class="view" id="view-events">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Events &amp; Budget</h1>
+        <div class="view-sub">Organization calendar and planned vs. actual spend per event</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Upcoming &amp; Past Events</div>
+        <div id="addEventAction"></div>
+      </div>
+      <div class="table-scroll" id="eventsTableWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading events…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Event Budget — Planned vs Actual</div>
+        <div id="addEventBudgetAction"></div>
+      </div>
+      <div class="table-scroll" id="eventBudgetWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading budget data…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FINANCIALS ================= -->
+  <section class="view" id="view-financials">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Financials</h1>
+        <div class="view-sub">Manpower cost vs revenue, and department CTC budgets — restricted view</div>
+      </div>
+    </div>
+
+    <div id="financialsGate"></div>
+
+    <div class="panel" id="yearlyPanel" style="display:none;">
+      <div class="panel-head"><div class="panel-title">Year-wise Manpower Cost vs Revenue</div></div>
+      <div class="table-scroll" id="yearlyTableWrap"></div>
+    </div>
+
+    <div class="panel" id="orgBudgetPanel" style="display:none;">
+      <div class="panel-head"><div class="panel-title">Department CTC — Budgeted vs Actual</div></div>
+      <div class="table-scroll" id="orgBudgetWrap"></div>
+    </div>
+  </section>
+
+  <!-- ================= ATTRITION ================= -->
+  <section class="view" id="view-attrition">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Attrition</h1>
+        <div class="view-sub">Exit log and department-wise attrition summary</div>
+      </div>
+      <div id="addAttritionAction"></div>
+    </div>
+
+    <div class="stat-grid" id="attritionStats"></div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Exit Log</div></div>
+      <div class="table-scroll" id="attritionTableWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading attrition data…</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================= MODAL: ADD EMPLOYEE ================= -->
+<div class="modal-overlay" id="modalEmployee">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Employee</div>
+      <button class="modal-close" data-close="modalEmployee" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="empFormError"></div>
+      <div class="form-success" id="empFormSuccess"></div>
+      <form id="empForm">
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Name <span class="required">*</span></label>
+            <input type="text" id="empName" required>
+          </div>
+          <div class="form-row">
+            <label>Employee ID</label>
+            <input type="text" id="empId" placeholder="Auto-generated if blank">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Designation <span class="required">*</span></label>
+            <input type="text" id="empDesignation" required>
+          </div>
+          <div class="form-row">
+            <label>Department <span class="required">*</span></label>
+            <input type="text" id="empDepartment" required>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Manager</label>
+            <input type="text" id="empManager">
+          </div>
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="empEmail">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Status</label>
+          <select id="empStatus">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalEmployee">Cancel</button>
+      <button class="btn btn-primary" id="empFormSubmit">Save employee</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD CRITICAL ITEM ================= -->
+<div class="modal-overlay" id="modalCritical">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Critical / Compliance Item</div>
+      <button class="modal-close" data-close="modalCritical" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="critFormError"></div>
+      <div class="form-success" id="critFormSuccess"></div>
+      <form id="critForm">
+        <div class="form-row">
+          <label>Item name <span class="required">*</span></label>
+          <input type="text" id="critName" required placeholder="e.g. PF Monthly Filing">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Tag <span class="required">*</span></label>
+            <select id="critTag">
+              <option value="Statutory">Statutory</option>
+              <option value="Bill">Bill</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Category</label>
+            <input type="text" id="critCategory" placeholder="e.g. Compliance, Operational">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Owner <span class="required">*</span></label>
+            <input type="text" id="critOwner" required>
+          </div>
+          <div class="form-row">
+            <label>Due date <span class="required">*</span></label>
+            <input type="date" id="critDueDate" required>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Amount (₹)</label>
+            <input type="number" id="critAmount" min="0" step="0.01">
+          </div>
+          <div class="form-row">
+            <label>Recurrence</label>
+            <select id="critRecurrence">
+              <option value="">One-time</option>
+              <option value="Monthly">Monthly</option>
+              <option value="Quarterly">Quarterly</option>
+              <option value="Half-Yearly">Half-Yearly</option>
+              <option value="Annual">Annual</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Notes</label>
+          <textarea id="critNotes" rows="2"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalCritical">Cancel</button>
+      <button class="btn btn-primary" id="critFormSubmit">Save item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD EVENT ================= -->
+<div class="modal-overlay" id="modalEvent">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Event</div>
+      <button class="modal-close" data-close="modalEvent" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="evtFormError"></div>
+      <div class="form-success" id="evtFormSuccess"></div>
+      <form id="evtForm">
+        <div class="form-row">
+          <label>Event name <span class="required">*</span></label>
+          <input type="text" id="evtName" required>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Event date <span class="required">*</span></label>
+            <input type="date" id="evtDate" required>
+          </div>
+          <div class="form-row">
+            <label>Department</label>
+            <input type="text" id="evtDepartment">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Owner</label>
+          <input type="text" id="evtOwner">
+        </div>
+        <div class="form-row">
+          <label>Notes</label>
+          <textarea id="evtNotes" rows="2"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalEvent">Cancel</button>
+      <button class="btn btn-primary" id="evtFormSubmit">Save event</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD EVENT BUDGET ================= -->
+<div class="modal-overlay" id="modalEventBudget">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Event Budget</div>
+      <button class="modal-close" data-close="modalEventBudget" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="budFormError"></div>
+      <div class="form-success" id="budFormSuccess"></div>
+      <form id="budForm">
+        <div class="form-row">
+          <label>Event name <span class="required">*</span></label>
+          <input type="text" id="budEventName" required placeholder="Match an existing event name">
+        </div>
+        <div class="form-row">
+          <label>Department</label>
+          <input type="text" id="budDepartment">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Budget planned (₹) <span class="required">*</span></label>
+            <input type="number" id="budPlanned" min="0" step="0.01" required>
+          </div>
+          <div class="form-row">
+            <label>Budget actual (₹)</label>
+            <input type="number" id="budActual" min="0" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Approved by</label>
+            <input type="text" id="budApprovedBy">
+          </div>
+          <div class="form-row">
+            <label>Approval date</label>
+            <input type="date" id="budApprovalDate">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Notes</label>
+          <textarea id="budNotes" rows="2"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalEventBudget">Cancel</button>
+      <button class="btn btn-primary" id="budFormSubmit">Save budget</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: LOG ATTRITION ================= -->
+<div class="modal-overlay" id="modalAttrition">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Log Exit</div>
+      <button class="modal-close" data-close="modalAttrition" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="attrFormError"></div>
+      <div class="form-success" id="attrFormSuccess"></div>
+      <form id="attrForm">
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Employee name <span class="required">*</span></label>
+            <input type="text" id="attrName" required>
+          </div>
+          <div class="form-row">
+            <label>Employee ID</label>
+            <input type="text" id="attrEmpId" placeholder="e.g. ML0123">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Department</label>
+            <input type="text" id="attrDepartment">
+          </div>
+          <div class="form-row">
+            <label>Designation</label>
+            <input type="text" id="attrDesignation">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Date joined</label>
+            <input type="date" id="attrDateJoined">
+          </div>
+          <div class="form-row">
+            <label>Date exited <span class="required">*</span></label>
+            <input type="date" id="attrDateExited" required>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Exit type</label>
+            <select id="attrExitType">
+              <option value="Voluntary">Voluntary</option>
+              <option value="Involuntary">Involuntary</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Regrettable exit?</label>
+            <select id="attrRegrettable">
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Reason</label>
+          <input type="text" id="attrReason">
+        </div>
+        <div class="form-row">
+          <label>Notes</label>
+          <textarea id="attrNotes" rows="2"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalAttrition">Cancel</button>
+      <button class="btn btn-primary" id="attrFormSubmit">Save record</button>
+    </div>
+  </div>
+</div>
+
+<footer class="app-footer">Mangalam HQ · HR Tool · Internal use only</footer>
+
+<script>
+/* ============== CONFIG ============== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbzSifFC_XGWBzrb9GboXqNWoeathwvMVM1dXva0katvl9gRjWShvELHDogwLZ012stA/exec';
+
+let state = {
+  token: localStorage.getItem('mgl_hr_token') || '',
+  role: null,
+  isFullAccess: false,
+  employees: [],
+  critical: [],
+  events: [],
+  eventBudget: [],
+  attrition: null
+};
+
+/* ============== API HELPER ============== */
+async function apiGet(action, extraParams = {}) {
+  const params = new URLSearchParams({ action, token: state.token, ...extraParams });
+  const res = await fetch(`${API_URL}?${params.toString()}`);
+  if (!res.ok) throw new Error('Network error: ' + res.status);
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
+async function apiPost(action, payload) {
+  const body = new URLSearchParams({
+    action,
+    token: state.token,
+    data: JSON.stringify(payload)
+  });
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    body: body
+  });
+  // Apps Script web apps return HTTP 200 with the error detail inside the
+  // JSON body (the jsonResponse() helper doesn't actually set status codes),
+  // so we always parse the body and check data.error rather than res.ok.
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
+/* ============== AUTH ============== */
+function setRolePill(connected, restricted) {
+  const pill = document.getElementById('rolePill');
+  if (!connected) {
+    pill.textContent = 'Not connected';
+    pill.style.background = 'var(--charcoal-soft)';
+  } else if (restricted) {
+    pill.textContent = 'Standard access';
+    pill.style.background = 'var(--gold)';
+  } else {
+    pill.textContent = 'Full access';
+    pill.style.background = 'var(--teal)';
+  }
+}
+
+document.getElementById('connectBtn').addEventListener('click', async () => {
+  const tokenVal = document.getElementById('tokenInput').value.trim();
+  if (!tokenVal) return;
+  state.token = tokenVal;
+  localStorage.setItem('mgl_hr_token', tokenVal);
+  document.getElementById('tokenInput').value = '';
+  await testConnection();
+  loadAllForCurrentView();
+});
+
+async function testConnection() {
+  try {
+    const data = await apiGet('getDepartmentSummary');
+    // If it returned data (not an error), token works. We can't directly know role from this
+    // endpoint, so we infer via a restricted endpoint.
+    let restricted = false;
+    try {
+      const fin = await apiGet('getYearlyFinancials');
+      restricted = !!(fin && fin.error);
+    } catch (e) { restricted = true; }
+    state.isFullAccess = !restricted;
+    setRolePill(true, restricted);
+    renderWriteActionButtons();
+  } catch (err) {
+    state.isFullAccess = false;
+    setRolePill(false);
+    renderWriteActionButtons();
+    showGlobalError('Could not connect — check your token and try again.');
+  }
+}
+
+/* ============== WRITE-ACTION BUTTONS (full-access only) ============== */
+function lockedNote(label) {
+  return `<span class="write-locked-note"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-9h-1V6a5 5 0 00-10 0v2H6a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V9a1 1 0 00-1-1zM9 6a3 3 0 016 0v2H9V6z"/></svg>${label} requires CEO/COO/VP-HR access</span>`;
+}
+
+function renderWriteActionButtons() {
+  const addIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+
+  const targets = [
+    { id: 'addEmployeeAction', label: 'Add employee', modal: 'modalEmployee' },
+    { id: 'addCriticalAction', label: 'Add item', modal: 'modalCritical' },
+    { id: 'addEventAction', label: 'Add event', modal: 'modalEvent' },
+    { id: 'addEventBudgetAction', label: 'Add budget', modal: 'modalEventBudget' },
+    { id: 'addAttritionAction', label: 'Log exit', modal: 'modalAttrition' }
+  ];
+
+  targets.forEach(t => {
+    const el = document.getElementById(t.id);
+    if (!el) return;
+    if (!state.token) {
+      el.innerHTML = '';
+    } else if (state.isFullAccess) {
+      el.innerHTML = `<button class="btn-add" data-open="${t.modal}">${addIcon}${t.label}</button>`;
+    } else {
+      el.innerHTML = lockedNote(t.label);
+    }
+  });
+}
+
+/* ============== MODAL OPEN / CLOSE ============== */
+document.addEventListener('click', (e) => {
+  const opener = e.target.closest('[data-open]');
+  if (opener) {
+    document.getElementById(opener.dataset.open).classList.add('open');
+    return;
+  }
+  const closer = e.target.closest('[data-close]');
+  if (closer) {
+    document.getElementById(closer.dataset.close).classList.remove('open');
+  }
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('open');
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function resetFormMessages(prefix) {
+  const errEl = document.getElementById(prefix + 'FormError');
+  const okEl = document.getElementById(prefix + 'FormSuccess');
+  if (errEl) { errEl.classList.remove('show'); errEl.textContent = ''; }
+  if (okEl) { okEl.classList.remove('show'); okEl.textContent = ''; }
+}
+
+function showFormError(prefix, msg) {
+  const errEl = document.getElementById(prefix + 'FormError');
+  errEl.textContent = msg;
+  errEl.classList.add('show');
+}
+
+function showFormSuccess(prefix, msg) {
+  const okEl = document.getElementById(prefix + 'FormSuccess');
+  okEl.textContent = msg;
+  okEl.classList.add('show');
+}
+
+function setButtonSaving(btn, saving, label) {
+  btn.disabled = saving;
+  btn.innerHTML = saving ? `<span class="save-spinner"></span> Saving…` : label;
+}
+
+function showGlobalError(msg) {
+  alert(msg);
+}
+
+/* ============== TAB NAVIGATION ============== */
+document.getElementById('tabBar').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const view = btn.dataset.view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  loadViewData(view);
+});
+
+function loadViewData(view) {
+  if (!state.token) return;
+  switch (view) {
+    case 'overview': loadOverview(); break;
+    case 'people': loadPeople(); break;
+    case 'critical': loadCritical(); break;
+    case 'events': loadEvents(); break;
+    case 'financials': loadFinancials(); break;
+    case 'attrition': loadAttrition(); break;
+  }
+}
+
+function loadAllForCurrentView() {
+  const activeBtn = document.querySelector('.tab-btn.active');
+  loadViewData(activeBtn ? activeBtn.dataset.view : 'overview');
+}
+
+/* ============== UTILITIES ============== */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function lockedField() {
+  return `<span class="locked"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-9h-1V6a5 5 0 00-10 0v2H6a1 1 0 00-1 1v11a1 1 0 001 1h12a1 1 0 001-1V9a1 1 0 00-1-1zM9 6a3 3 0 016 0v2H9V6z"/></svg>Restricted</span>`;
+}
+
+function renderEmptyRow(colspan, message) {
+  return `<tr class="empty-row"><td colspan="${colspan}">${message}</td></tr>`;
+}
+
+/* ============== OVERVIEW ============== */
+async function loadOverview() {
+  const statsEl = document.getElementById('overviewStats');
+  const deptEl = document.getElementById('deptSummary');
+  const alertEl = document.getElementById('overviewAlert');
+  statsEl.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading overview…</div>`;
+  deptEl.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading departments…</div>`;
+  alertEl.innerHTML = '';
+
+  try {
+    const [employees, deptSummary, criticalItems] = await Promise.all([
+      apiGet('getEmployees'),
+      apiGet('getDepartmentSummary'),
+      apiGet('getCriticalTracker')
+    ]);
+    state.employees = employees;
+
+    const total = employees.length;
+    const flagged = employees.filter(e => e.Data_Quality_Flag && e.Data_Quality_Flag.trim()).length;
+    const deptCount = Object.keys(deptSummary).length;
+    const criticalCount = criticalItems.filter(i => i.Urgency === 'critical').length;
+    const warningCount = criticalItems.filter(i => i.Urgency === 'warning').length;
+
+    if (criticalCount > 0) {
+      alertEl.innerHTML = `<div class="alert-banner"><span class="dot-pulse"></span><span><strong>${criticalCount} item${criticalCount > 1 ? 's' : ''}</strong> overdue 7+ days and still open. <a href="#" onclick="document.querySelector('[data-view=critical]').click();return false;" style="text-decoration:underline;">Review Compliance &amp; Critical Watch →</a></span></div>`;
+    }
+
+    statsEl.innerHTML = `
+      <div class="stat-card" style="--rail-color:var(--navy)">
+        <div class="stat-label">Total Headcount</div>
+        <div class="stat-value">${total}</div>
+      </div>
+      <div class="stat-card" style="--rail-color:var(--teal)">
+        <div class="stat-label">Departments</div>
+        <div class="stat-value">${deptCount}</div>
+      </div>
+      <div class="stat-card" style="--rail-color:var(--red)">
+        <div class="stat-label">Critical Overdue</div>
+        <div class="stat-value">${criticalCount}</div>
+      </div>
+      <div class="stat-card" style="--rail-color:var(--gold)">
+        <div class="stat-label">Warning (3–6 days)</div>
+        <div class="stat-value">${warningCount}</div>
+      </div>
+      <div class="stat-card" style="--rail-color:var(--charcoal-soft)">
+        <div class="stat-label">Flagged Records</div>
+        <div class="stat-value">${flagged}</div>
+      </div>
+    `;
+
+    const rows = Object.entries(deptSummary).sort((a,b) => b[1].count - a[1].count).map(([dept, info]) => {
+      const topDesig = Object.entries(info.designations).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([d,c]) => `${escapeHtml(d)} (${c})`).join(', ');
+      return `<tr><td style="font-weight:600;">${escapeHtml(dept)}</td><td>${info.count}</td><td style="color:var(--charcoal-soft);font-size:12.5px;">${topDesig}</td></tr>`;
+    }).join('');
+
+    deptEl.innerHTML = `
+      <table>
+        <thead><tr><th>Department</th><th>Headcount</th><th>Top designations</th></tr></thead>
+        <tbody>${rows || renderEmptyRow(3, 'No department data available.')}</tbody>
+      </table>
+    `;
+  } catch (err) {
+    statsEl.innerHTML = `<div class="error-state">Could not load overview. ${escapeHtml(err.message)}</div>`;
+    deptEl.innerHTML = '';
+  }
+}
+
+/* ============== PEOPLE EXPLORER ============== */
+async function loadPeople() {
+  const wrap = document.getElementById('peopleTableWrap');
+  wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading employees…</div>`;
+  try {
+    const employees = await apiGet('getEmployees');
+    state.employees = employees;
+    populatePeopleFilters(employees);
+    renderPeopleTable(employees);
+  } catch (err) {
+    wrap.innerHTML = `<div class="error-state">Could not load employees. ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function populatePeopleFilters(employees) {
+  const depts = [...new Set(employees.map(e => e.Department).filter(Boolean))].sort();
+  const desigs = [...new Set(employees.map(e => e.Designation).filter(Boolean))].sort();
+  const deptSel = document.getElementById('filterDept');
+  const desigSel = document.getElementById('filterDesig');
+  deptSel.innerHTML = '<option value="">All departments</option>' + depts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  desigSel.innerHTML = '<option value="">All designations</option>' + desigs.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+}
+
+function getFilteredEmployees() {
+  const search = document.getElementById('peopleSearch').value.trim().toLowerCase();
+  const dept = document.getElementById('filterDept').value;
+  const desig = document.getElementById('filterDesig').value;
+  const flagFilter = document.getElementById('filterFlag').value;
+
+  return state.employees.filter(e => {
+    if (search && !(`${e.Name} ${e.ID}`.toLowerCase().includes(search))) return false;
+    if (dept && e.Department !== dept) return false;
+    if (desig && e.Designation !== desig) return false;
+    if (flagFilter === 'flagged' && !(e.Data_Quality_Flag && e.Data_Quality_Flag.trim())) return false;
+    return true;
+  });
+}
+
+function renderPeopleTable(employees) {
+  const wrap = document.getElementById('peopleTableWrap');
+  const hasComp = employees.some(e => e.CTC !== undefined);
+
+  const head = `
+    <tr>
+      <th>ID</th><th>Name</th><th>Designation</th><th>Department</th><th>Manager</th>
+      ${hasComp ? '<th>CTC</th>' : '<th>Compensation</th>'}
+      <th>Flags</th>
+    </tr>`;
+
+  const rows = employees.map(e => {
+    const flagged = e.Data_Quality_Flag && e.Data_Quality_Flag.trim();
+    const compCell = hasComp
+      ? (e.CTC ? `₹${escapeHtml(e.CTC)}` : '<span style="color:var(--charcoal-soft);">—</span>')
+      : lockedField();
+    return `
+      <tr class="row-rail ${flagged ? 'rail-warning' : ''}">
+        <td style="color:var(--charcoal-soft);">${escapeHtml(e.ID)}</td>
+        <td style="font-weight:600;">${escapeHtml(e.Name)}</td>
+        <td>${escapeHtml(e.Designation)}</td>
+        <td>${escapeHtml(e.Department)}</td>
+        <td style="color:var(--charcoal-soft);">${escapeHtml(e.Manager) || '—'}</td>
+        <td>${compCell}</td>
+        <td>${flagged ? `<span class="badge badge-warning"><span class="dot"></span>Flagged</span>` : ''}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>${head}</thead>
+      <tbody>${rows || renderEmptyRow(7, 'No employees match these filters.')}</tbody>
+    </table>`;
+}
+
+['peopleSearch','filterDept','filterDesig','filterFlag'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => renderPeopleTable(getFilteredEmployees()));
+  document.getElementById(id).addEventListener('change', () => renderPeopleTable(getFilteredEmployees()));
+});
+document.getElementById('clearFilters').addEventListener('click', () => {
+  document.getElementById('peopleSearch').value = '';
+  document.getElementById('filterDept').value = '';
+  document.getElementById('filterDesig').value = '';
+  document.getElementById('filterFlag').value = '';
+  renderPeopleTable(state.employees);
+});
+
+/* ============== CRITICAL / COMPLIANCE ============== */
+function urgencyBadge(urgency, daysOverdue) {
+  if (urgency === 'critical') return `<span class="badge badge-critical"><span class="dot"></span>${daysOverdue} days overdue</span>`;
+  if (urgency === 'warning') return `<span class="badge badge-warning"><span class="dot"></span>${daysOverdue} days overdue</span>`;
+  if (urgency === 'due') return `<span class="badge badge-warning"><span class="dot"></span>Due today</span>`;
+  return `<span class="badge badge-ok"><span class="dot"></span>On track</span>`;
+}
+
+async function loadCritical() {
+  const wrap = document.getElementById('criticalTableWrap');
+  const alertEl = document.getElementById('criticalAlert');
+  wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading critical tracker…</div>`;
+  try {
+    const items = await apiGet('getCriticalTracker');
+    state.critical = items;
+    populateTagFilter(items);
+
+    const criticalCount = items.filter(i => i.Urgency === 'critical').length;
+    alertEl.innerHTML = criticalCount > 0
+      ? `<div class="alert-banner"><span class="dot-pulse"></span><span><strong>${criticalCount} item${criticalCount > 1 ? 's' : ''}</strong> have been open 7 or more days past due date.</span></div>`
+      : '';
+
+    renderCriticalTable(items);
+  } catch (err) {
+    wrap.innerHTML = `<div class="error-state">Could not load critical tracker. ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function populateTagFilter(items) {
+  const tags = [...new Set(items.map(i => i.Tag).filter(Boolean))].sort();
+  const sel = document.getElementById('filterTag');
+  sel.innerHTML = '<option value="">All tags</option>' + tags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+}
+
+function renderCriticalTable(items) {
+  const wrap = document.getElementById('criticalTableWrap');
+  const urgencyFilter = document.getElementById('filterUrgency').value;
+  const tagFilter = document.getElementById('filterTag').value;
+
+  const filtered = items.filter(i => {
+    if (urgencyFilter && i.Urgency !== urgencyFilter) return false;
+    if (tagFilter && i.Tag !== tagFilter) return false;
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a,b) => (b.Days_Overdue||0) - (a.Days_Overdue||0));
+
+  const rows = sorted.map(i => {
+    const railClass = i.Urgency === 'critical' ? 'rail-critical' : i.Urgency === 'warning' || i.Urgency === 'due' ? 'rail-warning' : 'rail-ok';
+    const tagClass = i.Tag === 'Bill' ? 'tag-bill' : 'tag-statutory';
+    const statusCell = state.isFullAccess
+      ? `<div class="inline-status-form">
+          <select class="status-select" data-prev-value="${escapeHtml(i.Status)}" onchange="updateCriticalItemStatus('${escapeHtml(i.Item_ID)}', this.value, this)">
+            <option value="Pending" ${i.Status==='Pending'?'selected':''}>Pending</option>
+            <option value="In Progress" ${i.Status==='In Progress'?'selected':''}>In Progress</option>
+            <option value="Paid" ${i.Status==='Paid'?'selected':''}>Paid</option>
+            <option value="Complete" ${i.Status==='Complete'?'selected':''}>Complete</option>
+          </select>
+        </div>`
+      : escapeHtml(i.Status);
+    return `
+      <tr class="row-rail ${railClass}">
+        <td><span class="tag-chip ${tagClass}">${escapeHtml(i.Tag)}</span></td>
+        <td style="font-weight:600;">${escapeHtml(i.Item_Name)}</td>
+        <td>${escapeHtml(i.Owner)}</td>
+        <td style="color:var(--charcoal-soft);">${escapeHtml(i.Due_Date)}</td>
+        <td>${escapeHtml(i.Recurrence) || '—'}</td>
+        <td>${statusCell}</td>
+        <td>${urgencyBadge(i.Urgency, i.Days_Overdue)}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Tag</th><th>Item</th><th>Owner</th><th>Due date</th><th>Recurrence</th><th>Status</th><th>Urgency</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(7, 'No items match these filters.')}</tbody>
+    </table>`;
+}
+
+['filterUrgency','filterTag'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => renderCriticalTable(state.critical));
+});
+
+/* ============== EVENTS & BUDGET ============== */
+async function loadEvents() {
+  const evWrap = document.getElementById('eventsTableWrap');
+  const budWrap = document.getElementById('eventBudgetWrap');
+  evWrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading events…</div>`;
+  budWrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading budget data…</div>`;
+  try {
+    const [events, budgets] = await Promise.all([
+      apiGet('getEventCalendar'),
+      apiGet('getEventBudget')
+    ]);
+
+    const evRows = events.map(e => `
+      <tr class="row-rail">
+        <td style="font-weight:600;">${escapeHtml(e.Event_Name)}</td>
+        <td>${escapeHtml(e.Event_Date)}</td>
+        <td>${escapeHtml(e.Department)}</td>
+        <td>${escapeHtml(e.Owner)}</td>
+        <td style="color:var(--charcoal-soft);font-size:12.5px;">${escapeHtml(e.Notes) || '—'}</td>
+      </tr>`).join('');
+
+    evWrap.innerHTML = `
+      <table>
+        <thead><tr><th>Event</th><th>Date</th><th>Department</th><th>Owner</th><th>Notes</th></tr></thead>
+        <tbody>${evRows || renderEmptyRow(5, 'No events scheduled yet.')}</tbody>
+      </table>`;
+
+    if (budgets && budgets.error) {
+      budWrap.innerHTML = `<div class="loading-state">${lockedField()} Budget figures are restricted to CEO / COO / VP-HR access.</div>`;
+    } else {
+      const budRows = budgets.map(b => {
+        const varClass = b.Variance > 0 ? 'badge-critical' : b.Variance < 0 ? 'badge-ok' : 'badge-neutral';
+        return `
+          <tr class="row-rail">
+            <td style="font-weight:600;">${escapeHtml(b.Event_Name)}</td>
+            <td>${escapeHtml(b.Department)}</td>
+            <td>₹${escapeHtml(b.Budget_Planned)}</td>
+            <td>₹${escapeHtml(b.Budget_Actual)}</td>
+            <td><span class="badge ${varClass}"><span class="dot"></span>${b.Variance_Percent > 0 ? '+' : ''}${b.Variance_Percent}%</span></td>
+          </tr>`;
+      }).join('');
+      budWrap.innerHTML = `
+        <table>
+          <thead><tr><th>Event</th><th>Department</th><th>Planned</th><th>Actual</th><th>Variance</th></tr></thead>
+          <tbody>${budRows || renderEmptyRow(5, 'No event budgets recorded yet.')}</tbody>
+        </table>`;
+    }
+  } catch (err) {
+    evWrap.innerHTML = `<div class="error-state">Could not load events. ${escapeHtml(err.message)}</div>`;
+    budWrap.innerHTML = '';
+  }
+}
+
+/* ============== FINANCIALS ============== */
+async function loadFinancials() {
+  const gate = document.getElementById('financialsGate');
+  const yearlyPanel = document.getElementById('yearlyPanel');
+  const orgPanel = document.getElementById('orgBudgetPanel');
+  gate.innerHTML = '';
+  yearlyPanel.style.display = 'none';
+  orgPanel.style.display = 'none';
+
+  try {
+    const yearly = await apiGet('getYearlyFinancials');
+    if (yearly && yearly.error) {
+      gate.innerHTML = `<div class="panel"><div class="panel-body padded" style="text-align:center;color:var(--charcoal-soft);">${lockedField()}<div style="margin-top:8px;">Financial data is restricted to CEO, COO, and VP-HR access tokens.</div></div></div>`;
+      return;
+    }
+
+    yearlyPanel.style.display = '';
+    const yRows = yearly.map(y => `
+      <tr class="row-rail">
+        <td style="font-weight:600;">${escapeHtml(y.FY)}</td>
+        <td>₹${escapeHtml(y.Manpower_Cost) || '—'}</td>
+        <td>₹${escapeHtml(y.Revenue) || '—'}</td>
+        <td>${y.Manpower_Cost_Percent_Of_Revenue ? y.Manpower_Cost_Percent_Of_Revenue + '%' : '—'}</td>
+        <td>${escapeHtml(y.Headcount_Avg) || '—'}</td>
+      </tr>`).join('');
+    document.getElementById('yearlyTableWrap').innerHTML = `
+      <table>
+        <thead><tr><th>FY</th><th>Manpower Cost</th><th>Revenue</th><th>Cost % of Revenue</th><th>Avg Headcount</th></tr></thead>
+        <tbody>${yRows || renderEmptyRow(5, 'No financial data entered yet.')}</tbody>
+      </table>`;
+
+    const orgBudget = await apiGet('getOrgBudget');
+    orgPanel.style.display = '';
+    const oRows = (orgBudget.error ? [] : orgBudget).map(o => `
+      <tr class="row-rail">
+        <td style="font-weight:600;">${escapeHtml(o.Department)}</td>
+        <td>${escapeHtml(o.FY)}</td>
+        <td>₹${escapeHtml(o.CTC_Budgeted) || '—'}</td>
+        <td>₹${escapeHtml(o.CTC_Actual) || '—'}</td>
+        <td>${escapeHtml(o.Headcount_Budgeted) || '—'}</td>
+        <td>${escapeHtml(o.Headcount_Actual) || '—'}</td>
+      </tr>`).join('');
+    document.getElementById('orgBudgetWrap').innerHTML = `
+      <table>
+        <thead><tr><th>Department</th><th>FY</th><th>CTC Budgeted</th><th>CTC Actual</th><th>Headcount Budgeted</th><th>Headcount Actual</th></tr></thead>
+        <tbody>${oRows || renderEmptyRow(6, 'No department budget data entered yet.')}</tbody>
+      </table>`;
+  } catch (err) {
+    gate.innerHTML = `<div class="error-state">Could not load financials. ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+/* ============== ATTRITION ============== */
+async function loadAttrition() {
+  const statsEl = document.getElementById('attritionStats');
+  const wrap = document.getElementById('attritionTableWrap');
+  wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading attrition data…</div>`;
+  try {
+    const data = await apiGet('getAttrition');
+    const records = data.records || [];
+    const summary = data.summary_by_department || {};
+
+    const totalExits = records.length;
+    const totalRegrettable = records.filter(r => r.Regrettable === 'Yes').length;
+
+    statsEl.innerHTML = `
+      <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Total Exits Logged</div><div class="stat-value">${totalExits}</div></div>
+      <div class="stat-card" style="--rail-color:var(--red)"><div class="stat-label">Regrettable Exits</div><div class="stat-value">${totalRegrettable}</div></div>
+      <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Departments Affected</div><div class="stat-value">${Object.keys(summary).length}</div></div>
+    `;
+
+    const rows = records.map(r => `
+      <tr class="row-rail ${r.Regrettable === 'Yes' ? 'rail-critical' : ''}">
+        <td style="font-weight:600;">${escapeHtml(r.Employee_Name)}</td>
+        <td>${escapeHtml(r.Department)}</td>
+        <td>${escapeHtml(r.Designation)}</td>
+        <td>${escapeHtml(r.Date_Exited)}</td>
+        <td>${escapeHtml(r.Exit_Type)}</td>
+        <td>${r.Regrettable === 'Yes' ? '<span class="badge badge-critical"><span class="dot"></span>Yes</span>' : '<span class="badge badge-ok"><span class="dot"></span>No</span>'}</td>
+        <td style="color:var(--charcoal-soft);font-size:12.5px;">${escapeHtml(r.Reason) || '—'}</td>
+      </tr>`).join('');
+
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Name</th><th>Department</th><th>Designation</th><th>Exit date</th><th>Type</th><th>Regrettable</th><th>Reason</th></tr></thead>
+        <tbody>${rows || renderEmptyRow(7, 'No exits logged yet.')}</tbody>
+      </table>`;
+  } catch (err) {
+    wrap.innerHTML = `<div class="error-state">Could not load attrition data. ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+/* ============== WRITE FORMS ============== */
+
+// --- Add Employee ---
+document.getElementById('empFormSubmit').addEventListener('click', async () => {
+  resetFormMessages('emp');
+  const name = document.getElementById('empName').value.trim();
+  const designation = document.getElementById('empDesignation').value.trim();
+  const department = document.getElementById('empDepartment').value.trim();
+  if (!name || !designation || !department) {
+    showFormError('emp', 'Name, designation, and department are required.');
+    return;
+  }
+  const payload = {
+    ID: document.getElementById('empId').value.trim(),
+    Name: name,
+    Designation: designation,
+    Department: department,
+    Manager: document.getElementById('empManager').value.trim(),
+    Email: document.getElementById('empEmail').value.trim(),
+    Status: document.getElementById('empStatus').value
+  };
+  const btn = document.getElementById('empFormSubmit');
+  setButtonSaving(btn, true);
+  try {
+    const result = await apiPost('addEmployee', payload);
+    showFormSuccess('emp', `Employee saved (ID: ${result.id}).`);
+    document.getElementById('empForm').reset();
+    await loadPeople();
+    setTimeout(() => closeModal('modalEmployee'), 1200);
+  } catch (err) {
+    showFormError('emp', err.message);
+  } finally {
+    setButtonSaving(btn, false, 'Save employee');
+  }
+});
+
+// --- Add Critical Item ---
+document.getElementById('critFormSubmit').addEventListener('click', async () => {
+  resetFormMessages('crit');
+  const name = document.getElementById('critName').value.trim();
+  const owner = document.getElementById('critOwner').value.trim();
+  const dueDate = document.getElementById('critDueDate').value;
+  if (!name || !owner || !dueDate) {
+    showFormError('crit', 'Item name, owner, and due date are required.');
+    return;
+  }
+  const payload = {
+    Item_Name: name,
+    Tag: document.getElementById('critTag').value,
+    Category: document.getElementById('critCategory').value.trim(),
+    Owner: owner,
+    Due_Date: dueDate,
+    Amount: document.getElementById('critAmount').value,
+    Recurrence: document.getElementById('critRecurrence').value,
+    Notes: document.getElementById('critNotes').value.trim(),
+    Status: 'Pending'
+  };
+  const btn = document.getElementById('critFormSubmit');
+  setButtonSaving(btn, true);
+  try {
+    const result = await apiPost('addCriticalItem', payload);
+    showFormSuccess('crit', `Item saved (ID: ${result.id}).`);
+    document.getElementById('critForm').reset();
+    await loadCritical();
+    setTimeout(() => closeModal('modalCritical'), 1200);
+  } catch (err) {
+    showFormError('crit', err.message);
+  } finally {
+    setButtonSaving(btn, false, 'Save item');
+  }
+});
+
+// --- Update Critical Status (inline, from table) ---
+async function updateCriticalItemStatus(itemId, newStatus, selectEl) {
+  const previousValue = selectEl.dataset.prevValue || selectEl.value;
+  selectEl.disabled = true;
+  try {
+    await apiPost('updateCriticalStatus', { Item_ID: itemId, Status: newStatus });
+    selectEl.dataset.prevValue = newStatus;
+    await loadCritical();
+  } catch (err) {
+    alert('Could not update status: ' + err.message);
+    selectEl.value = previousValue;
+    selectEl.disabled = false;
+  }
+}
+
+// --- Add Event ---
+document.getElementById('evtFormSubmit').addEventListener('click', async () => {
+  resetFormMessages('evt');
+  const name = document.getElementById('evtName').value.trim();
+  const date = document.getElementById('evtDate').value;
+  if (!name || !date) {
+    showFormError('evt', 'Event name and date are required.');
+    return;
+  }
+  const payload = {
+    Event_Name: name,
+    Event_Date: date,
+    Department: document.getElementById('evtDepartment').value.trim(),
+    Owner: document.getElementById('evtOwner').value.trim(),
+    Notes: document.getElementById('evtNotes').value.trim()
+  };
+  const btn = document.getElementById('evtFormSubmit');
+  setButtonSaving(btn, true);
+  try {
+    const result = await apiPost('addEvent', payload);
+    showFormSuccess('evt', `Event saved (ID: ${result.id}).`);
+    document.getElementById('evtForm').reset();
+    await loadEvents();
+    setTimeout(() => closeModal('modalEvent'), 1200);
+  } catch (err) {
+    showFormError('evt', err.message);
+  } finally {
+    setButtonSaving(btn, false, 'Save event');
+  }
+});
+
+// --- Add Event Budget ---
+document.getElementById('budFormSubmit').addEventListener('click', async () => {
+  resetFormMessages('bud');
+  const eventName = document.getElementById('budEventName').value.trim();
+  const planned = document.getElementById('budPlanned').value;
+  if (!eventName || planned === '') {
+    showFormError('bud', 'Event name and planned budget are required.');
+    return;
+  }
+  const payload = {
+    Event_Name: eventName,
+    Department: document.getElementById('budDepartment').value.trim(),
+    Budget_Planned: planned,
+    Budget_Actual: document.getElementById('budActual').value,
+    Approved_By: document.getElementById('budApprovedBy').value.trim(),
+    Approval_Date: document.getElementById('budApprovalDate').value,
+    Notes: document.getElementById('budNotes').value.trim()
+  };
+  const btn = document.getElementById('budFormSubmit');
+  setButtonSaving(btn, true);
+  try {
+    const result = await apiPost('addEventBudget', payload);
+    showFormSuccess('bud', `Budget saved (ID: ${result.id}).`);
+    document.getElementById('budForm').reset();
+    await loadEvents();
+    setTimeout(() => closeModal('modalEventBudget'), 1200);
+  } catch (err) {
+    showFormError('bud', err.message);
+  } finally {
+    setButtonSaving(btn, false, 'Save budget');
+  }
+});
+
+// --- Log Attrition ---
+document.getElementById('attrFormSubmit').addEventListener('click', async () => {
+  resetFormMessages('attr');
+  const name = document.getElementById('attrName').value.trim();
+  const dateExited = document.getElementById('attrDateExited').value;
+  if (!name || !dateExited) {
+    showFormError('attr', 'Employee name and exit date are required.');
+    return;
+  }
+  const payload = {
+    Employee_Name: name,
+    Employee_ID: document.getElementById('attrEmpId').value.trim(),
+    Department: document.getElementById('attrDepartment').value.trim(),
+    Designation: document.getElementById('attrDesignation').value.trim(),
+    Date_Joined: document.getElementById('attrDateJoined').value,
+    Date_Exited: dateExited,
+    Exit_Type: document.getElementById('attrExitType').value,
+    Regrettable: document.getElementById('attrRegrettable').value,
+    Reason: document.getElementById('attrReason').value.trim(),
+    Notes: document.getElementById('attrNotes').value.trim()
+  };
+  const btn = document.getElementById('attrFormSubmit');
+  setButtonSaving(btn, true);
+  try {
+    const result = await apiPost('addAttritionRecord', payload);
+    showFormSuccess('attr', `Exit logged (ID: ${result.id}).`);
+    document.getElementById('attrForm').reset();
+    await loadAttrition();
+    setTimeout(() => closeModal('modalAttrition'), 1200);
+  } catch (err) {
+    showFormError('attr', err.message);
+  } finally {
+    setButtonSaving(btn, false, 'Save record');
+  }
+});
+
+/* ============== INIT ============== */
+window.addEventListener('DOMContentLoaded', () => {
+  renderWriteActionButtons();
+  if (state.token) {
+    testConnection().then(loadOverview);
+  } else {
+    document.getElementById('overviewStats').innerHTML = `<div class="loading-state">Enter your access token above and click Connect to load data.</div>`;
+    document.getElementById('deptSummary').innerHTML = '';
+  }
+});
+</script>
+</body>
+</html>
