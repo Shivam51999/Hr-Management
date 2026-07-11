@@ -794,7 +794,7 @@
 
         <div class="panel">
           <div class="panel-head">
-            <div class="panel-title">Salary by Designation — Min / Median / Max</div>
+            <div class="panel-title">Salary by Designation — Min / Max</div>
           </div>
           <div class="panel-body padded">
             <div class="chart-wrap"><canvas id="chartCompDesignation"></canvas></div>
@@ -803,7 +803,7 @@
 
         <div class="panel">
           <div class="panel-head">
-            <div class="panel-title">Salary by Department — Min / Median / Max</div>
+            <div class="panel-title">Salary by Department — Min / Max</div>
           </div>
           <div class="panel-body padded">
             <div class="chart-wrap"><canvas id="chartCompDepartment"></canvas></div>
@@ -1634,15 +1634,40 @@ function populatePeopleFilters(employees) {
 }
 
 /**
- * Converts a raw date value (from the sheet, e.g. "2021-04-15" or "15/04/2021")
- * into an elapsed-time string formatted as "years.months yr" (e.g. "4.6 yr").
- * Recomputed live on every render, so it's always accurate to the day —
- * no monthly refresh job needed.
+ * Converts a raw date value (from the sheet — could be a native Date object
+ * serialized to ISO by Apps Script, an ISO string "2021-04-15", or a
+ * hand-typed "15/04/2021" style string) into an elapsed-time string
+ * formatted as "years.months yr" (e.g. "4.6 yr"). Recomputed live on every
+ * render, so it's always accurate to the day — no monthly refresh job needed.
  */
+function parseFlexibleDate(rawDate) {
+  if (!rawDate) return null;
+  if (rawDate instanceof Date) return isNaN(rawDate.getTime()) ? null : rawDate;
+
+  const str = String(rawDate).trim();
+  if (!str) return null;
+
+  // Try native parsing first (handles ISO "2021-04-15" and full timestamps).
+  const native = new Date(str);
+  if (!isNaN(native.getTime())) return native;
+
+  // Fallback: DD/MM/YYYY or DD-MM-YYYY (common hand-typed Indian date format,
+  // which JS's native parser misreads as MM/DD/YYYY and rejects).
+  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    const day = parseInt(dmy[1], 10);
+    const month = parseInt(dmy[2], 10) - 1;
+    const year = parseInt(dmy[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  return null;
+}
+
 function calcTenureString(rawDate) {
-  if (!rawDate) return '—';
-  const start = new Date(rawDate);
-  if (isNaN(start.getTime())) return '—';
+  const start = parseFlexibleDate(rawDate);
+  if (!start) return '—';
 
   const now = new Date();
   let years = now.getFullYear() - start.getFullYear();
@@ -2040,14 +2065,13 @@ async function loadCompensationAnalytics() {
           <td>${escapeHtml(o.Designation)}</td>
           <td>${escapeHtml(o.Department)}</td>
           <td>₹${o.CTC.toLocaleString('en-IN')}</td>
-          <td>₹${o.Designation_Median.toLocaleString('en-IN')}</td>
-          <td><span class="badge ${badgeClass}"><span class="dot"></span>${o.Compa_Ratio}% of median</span></td>
+          <td><span class="badge ${badgeClass}"><span class="dot"></span>${o.Compa_Ratio}%</span></td>
         </tr>`;
     }).join('');
     document.getElementById('compOutlierTableWrap').innerHTML = `
       <table>
-        <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>CTC</th><th>Designation Median</th><th>Compa-ratio</th></tr></thead>
-        <tbody>${outlierRows || renderEmptyRow(6, 'No pay outliers detected — all salaries within 25% of their designation median.')}</tbody>
+        <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>CTC</th><th>Compa-ratio</th></tr></thead>
+        <tbody>${outlierRows || renderEmptyRow(5, 'No pay outliers detected — all salaries within 25% of their designation median.')}</tbody>
       </table>`;
   } catch (err) {
     gate.innerHTML = `<div class="error-state">Could not load compensation analytics. ${escapeHtml(err.message)}</div>`;
@@ -2059,7 +2083,6 @@ function renderSalaryBandChart(canvasId, groupedStats) {
   destroyChart(canvasId);
   const labels = Object.keys(groupedStats);
   const mins = labels.map(l => groupedStats[l].min);
-  const medians = labels.map(l => groupedStats[l].median);
   const maxs = labels.map(l => groupedStats[l].max);
 
   const ctx = document.getElementById(canvasId).getContext('2d');
@@ -2069,7 +2092,6 @@ function renderSalaryBandChart(canvasId, groupedStats) {
       labels: labels,
       datasets: [
         { label: 'Min', data: mins, backgroundColor: CHART_COLORS.charcoalSoft },
-        { label: 'Median', data: medians, backgroundColor: CHART_COLORS.navy },
         { label: 'Max', data: maxs, backgroundColor: CHART_COLORS.gold }
       ]
     },
@@ -2096,14 +2118,13 @@ function renderSalaryBandTable(groupedStats, labelHeader) {
         <td style="font-weight:600;">${escapeHtml(key)}</td>
         <td>${s.count}</td>
         <td>₹${s.min.toLocaleString('en-IN')}</td>
-        <td>₹${s.median.toLocaleString('en-IN')}</td>
         <td>₹${s.average.toLocaleString('en-IN')}</td>
         <td>₹${s.max.toLocaleString('en-IN')}</td>
       </tr>`).join('');
   return `
     <table>
-      <thead><tr><th>${labelHeader}</th><th>Count</th><th>Min</th><th>Median</th><th>Average</th><th>Max</th></tr></thead>
-      <tbody>${rows || renderEmptyRow(6, 'No compensation data entered yet.')}</tbody>
+      <thead><tr><th>${labelHeader}</th><th>Count</th><th>Min</th><th>Average</th><th>Max</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(5, 'No compensation data entered yet.')}</tbody>
     </table>`;
 }
 
