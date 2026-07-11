@@ -1051,12 +1051,30 @@
             <input type="email" id="empEmail">
           </div>
         </div>
-        <div class="form-row">
-          <label>Status</label>
-          <select id="empStatus">
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Qualification</label>
+            <input type="text" id="empQualification" placeholder="e.g. B.E. Civil, MBA">
+          </div>
+          <div class="form-row">
+            <label>Status</label>
+            <select id="empStatus">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Career Start Date</label>
+            <input type="date" id="empCareerStartDate">
+            <div style="font-size:11px;color:var(--charcoal-soft);margin-top:3px;">Used to auto-calculate Total Experience</div>
+          </div>
+          <div class="form-row">
+            <label>Date Joined Mangalam</label>
+            <input type="date" id="empDateJoinedMangalam">
+            <div style="font-size:11px;color:var(--charcoal-soft);margin-top:3px;">Used to auto-calculate In Mangalam Since</div>
+          </div>
         </div>
       </form>
     </div>
@@ -1615,6 +1633,68 @@ function populatePeopleFilters(employees) {
   desigSel.innerHTML = '<option value="">All designations</option>' + desigs.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
 }
 
+/**
+ * Converts a raw date value (from the sheet, e.g. "2021-04-15" or "15/04/2021")
+ * into an elapsed-time string formatted as "years.months yr" (e.g. "4.6 yr").
+ * Recomputed live on every render, so it's always accurate to the day —
+ * no monthly refresh job needed.
+ */
+function calcTenureString(rawDate) {
+  if (!rawDate) return '—';
+  const start = new Date(rawDate);
+  if (isNaN(start.getTime())) return '—';
+
+  const now = new Date();
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (now.getDate() < start.getDate()) months--;
+  if (months < 0) { years--; months += 12; }
+  if (years < 0) return '—'; // future-dated, bad data
+
+  return `${years}.${months} yr`;
+}
+
+function renderPeopleTable(employees) {
+  const wrap = document.getElementById('peopleTableWrap');
+  const hasComp = employees.some(e => e.CTC !== undefined);
+
+  const head = `
+    <tr>
+      <th>ID</th><th>Name</th><th>Designation</th><th>Department</th><th>Manager</th>
+      <th>Qualification</th><th>Total Experience</th><th>In Mangalam Since</th>
+      ${hasComp ? '<th>CTC</th>' : '<th>Compensation</th>'}
+      <th>Flags</th>
+    </tr>`;
+
+  const rows = employees.map(e => {
+    const flagged = e.Data_Quality_Flag && e.Data_Quality_Flag.trim();
+    const compCell = hasComp
+      ? (e.CTC ? `₹${escapeHtml(e.CTC)}` : '<span style="color:var(--charcoal-soft);">—</span>')
+      : lockedField();
+    const totalExp = calcTenureString(e.Career_Start_Date);
+    const mglSince = calcTenureString(e.Date_Joined_Mangalam);
+    return `
+      <tr class="row-rail ${flagged ? 'rail-warning' : ''}">
+        <td style="color:var(--charcoal-soft);">${escapeHtml(e.ID)}</td>
+        <td style="font-weight:600;">${escapeHtml(e.Name)}</td>
+        <td>${escapeHtml(e.Designation)}</td>
+        <td>${escapeHtml(e.Department)}</td>
+        <td style="color:var(--charcoal-soft);">${escapeHtml(e.Manager) || '—'}</td>
+        <td>${escapeHtml(e.Qualification) || '—'}</td>
+        <td>${totalExp}</td>
+        <td>${mglSince}</td>
+        <td>${compCell}</td>
+        <td>${flagged ? `<span class="badge badge-warning"><span class="dot"></span>Flagged</span>` : ''}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>${head}</thead>
+      <tbody>${rows || renderEmptyRow(10, 'No employees match these filters.')}</tbody>
+    </table>`;
+}
+
 function getFilteredEmployees() {
   const search = document.getElementById('peopleSearch').value.trim().toLowerCase();
   const dept = document.getElementById('filterDept').value;
@@ -1630,40 +1710,7 @@ function getFilteredEmployees() {
   });
 }
 
-function renderPeopleTable(employees) {
-  const wrap = document.getElementById('peopleTableWrap');
-  const hasComp = employees.some(e => e.CTC !== undefined);
 
-  const head = `
-    <tr>
-      <th>ID</th><th>Name</th><th>Designation</th><th>Department</th><th>Manager</th>
-      ${hasComp ? '<th>CTC</th>' : '<th>Compensation</th>'}
-      <th>Flags</th>
-    </tr>`;
-
-  const rows = employees.map(e => {
-    const flagged = e.Data_Quality_Flag && e.Data_Quality_Flag.trim();
-    const compCell = hasComp
-      ? (e.CTC ? `₹${escapeHtml(e.CTC)}` : '<span style="color:var(--charcoal-soft);">—</span>')
-      : lockedField();
-    return `
-      <tr class="row-rail ${flagged ? 'rail-warning' : ''}">
-        <td style="color:var(--charcoal-soft);">${escapeHtml(e.ID)}</td>
-        <td style="font-weight:600;">${escapeHtml(e.Name)}</td>
-        <td>${escapeHtml(e.Designation)}</td>
-        <td>${escapeHtml(e.Department)}</td>
-        <td style="color:var(--charcoal-soft);">${escapeHtml(e.Manager) || '—'}</td>
-        <td>${compCell}</td>
-        <td>${flagged ? `<span class="badge badge-warning"><span class="dot"></span>Flagged</span>` : ''}</td>
-      </tr>`;
-  }).join('');
-
-  wrap.innerHTML = `
-    <table>
-      <thead>${head}</thead>
-      <tbody>${rows || renderEmptyRow(7, 'No employees match these filters.')}</tbody>
-    </table>`;
-}
 
 ['peopleSearch','filterDept','filterDesig','filterFlag'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => renderPeopleTable(getFilteredEmployees()));
@@ -2287,7 +2334,10 @@ document.getElementById('empFormSubmit').addEventListener('click', async () => {
     Department: department,
     Manager: document.getElementById('empManager').value.trim(),
     Email: document.getElementById('empEmail').value.trim(),
-    Status: document.getElementById('empStatus').value
+    Status: document.getElementById('empStatus').value,
+    Qualification: document.getElementById('empQualification').value.trim(),
+    Career_Start_Date: document.getElementById('empCareerStartDate').value,
+    Date_Joined_Mangalam: document.getElementById('empDateJoinedMangalam').value
   };
   const btn = document.getElementById('empFormSubmit');
   setButtonSaving(btn, true);
