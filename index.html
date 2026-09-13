@@ -1081,6 +1081,16 @@
 
     <div class="panel">
       <div class="panel-head">
+        <div class="panel-title">Previous Experience Distribution</div>
+        <div class="view-sub" style="margin:0;">From the Previous Experience column in the Employee Master, not derived</div>
+      </div>
+      <div class="panel-body padded" id="demoPrevExpWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <div class="panel-title">Education / Qualification Mix</div>
         <div class="view-sub" style="margin:0;">Headcount by qualification, as entered in the master</div>
       </div>
@@ -2109,6 +2119,7 @@ const DEMO_FIELDS = [
   { key: 'qual',       label: 'Qualification',       candidates: ['Qualification'] },
   { key: 'career',     label: 'Career Start Date',   candidates: ['Career_Start_Date'] },
   { key: 'joined',     label: 'Date Joined Mangalam',candidates: ['Date_Joined_Mangalam','DOJ','Date_Of_Joining','D_O_J','Joining_Date'] },
+  { key: 'prevExp',    label: 'Previous Experience', candidates: ['Previous_Experience','Prev_Experience','Previous_Exp','Prior_Experience','Experience_Before_Mangalam','Previous_Exp_Years','Prev_Exp_Years'] },
   { key: 'ctcMonthly', label: 'Monthly CTC',         candidates: ['Monthly_CTC','CTC_Monthly','Monthly_Gross','CTC_Per_Month','Monthly_Salary'] },
   { key: 'ctcAnnual',  label: 'Annual CTC',          candidates: ['Annual_CTC','CTC_Annual','CTC_PA','CTC_Per_Annum','Yearly_CTC','CTC'] }
 ];
@@ -2132,6 +2143,22 @@ function isBlankValue(v) {
 }
 
 let currentResolvedFields = {};
+
+/**
+ * Sorts grade/band labels in true sequence (L1, L2, ... L10, M1, ... V2)
+ * rather than plain alphabetical text sort, which would put "L10" before
+ * "L2". Splits each label into its letter prefix and numeric suffix and
+ * compares prefix first, then number.
+ */
+function naturalGradeSort(a, b) {
+  const parse = (s) => {
+    const m = String(s).match(/^([A-Za-z]*)\s*(\d*)/);
+    return { prefix: (m && m[1] || '').toUpperCase(), num: (m && m[2]) ? parseInt(m[2], 10) : 0 };
+  };
+  const pa = parse(a), pb = parse(b);
+  if (pa.prefix !== pb.prefix) return pa.prefix.localeCompare(pb.prefix);
+  return pa.num - pb.num;
+}
 
 function untrackedNote(msg) {
   return `<span style="color:var(--charcoal-soft);font-style:italic;">${msg}</span>`;
@@ -2166,14 +2193,26 @@ function renderTenureSearchResults(query) {
   }
   const careerCol = currentResolvedFields.career || 'Career_Start_Date';
   const joinedCol = currentResolvedFields.joined || 'Date_Joined_Mangalam';
+  const prevExpCol = currentResolvedFields.prevExp;
   const rows = matches.map(e => {
     // Total = full career (careerCol -> now).
     // Current = tenure at Mangalam (joinedCol -> now).
-    // Previous = whatever career time isn't accounted for by the current
-    // stint here, i.e. experience before joining Mangalam.
+    // Previous: prefer the sheet's own Previous Experience column when
+    // present — that's the authoritative source. Only fall back to
+    // subtracting (Total - Current) when that column isn't available,
+    // and label the fallback as an estimate so the two are never confused.
     const totalYrs = tenureYearsDecimal(e[careerCol]);
     const currentYrs = tenureYearsDecimal(e[joinedCol]);
-    const prevYrs = (totalYrs !== null && currentYrs !== null) ? Math.max(totalYrs - currentYrs, 0) : null;
+    let prevYrs = null;
+    let prevFromSheet = false;
+    if (prevExpCol && !isBlankValue(e[prevExpCol])) {
+      prevYrs = parsePrevExpYears(e[prevExpCol]);
+      prevFromSheet = prevYrs !== null;
+    }
+    if (prevYrs === null && totalYrs !== null && currentYrs !== null) {
+      prevYrs = Math.max(totalYrs - currentYrs, 0);
+    }
+    const prevLabel = prevYrs === null ? '—' : `${formatYears(prevYrs)}${prevFromSheet ? '' : ' (est.)'}`;
     return `
       <tr class="row-rail">
         <td style="color:var(--charcoal-soft);">${escapeHtml(e.ID)}</td>
@@ -2181,7 +2220,7 @@ function renderTenureSearchResults(query) {
         <td>${escapeHtml(e.Designation)}</td>
         <td>${escapeHtml(e.Department)}</td>
         <td>${formatYears(currentYrs)}</td>
-        <td>${formatYears(prevYrs)}</td>
+        <td>${prevLabel}</td>
         <td style="font-weight:600;">${formatYears(totalYrs)}</td>
       </tr>`;
   }).join('');
@@ -2196,7 +2235,7 @@ document.getElementById('tenureSearchInput').addEventListener('input', (e) => re
 
 async function loadDemographics() {
   const noteEl = document.getElementById('demoNote');
-  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoMaritalWrap','demoGradeWrap','demoAgeWrap','demoTenureWrap','demoEducationWrap','demoLocationWrap','demoPayRatioWrap','compExplorerWrap'];
+  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoMaritalWrap','demoGradeWrap','demoAgeWrap','demoTenureWrap','demoPrevExpWrap','demoEducationWrap','demoLocationWrap','demoPayRatioWrap','compExplorerWrap'];
   noteEl.innerHTML = '';
   panelIds.forEach(id => {
     document.getElementById(id).innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading…</div>`;
@@ -2226,6 +2265,7 @@ async function loadDemographics() {
     renderDemoGrade(employees, resolved, total);
     renderDemoAge(employees, resolved, total);
     renderDemoTenure(employees, resolved, total);
+    renderDemoPrevExp(employees, resolved, total);
     renderDemoEducation(employees, resolved, total);
     renderDemoLocation(employees, resolved, total);
     renderDemoPayRatio(employees, resolved, total);
@@ -2392,6 +2432,11 @@ function renderDemoEducation(employees, resolved, total) {
         </div>`).join('')}
     </div>
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoEducation"></canvas></div>
+    <div style="margin-top:18px;font-family:var(--font-display);font-size:15px;color:var(--charcoal);">By education level</div>
+    <table style="margin-top:8px;">
+      <thead><tr><th>Education level</th><th>Headcount</th><th>Share</th></tr></thead>
+      <tbody>${catLabels.map(l => `<tr class="row-rail"><td style="font-weight:600;">${escapeHtml(l)}</td><td>${catCounts[l]}</td><td style="color:var(--charcoal-soft);">${total ? Math.round(catCounts[l]/total*100) : 0}%</td></tr>`).join('') || renderEmptyRow(3,'No qualification data available.')}</tbody>
+    </table>
     <div style="margin-top:18px;font-family:var(--font-display);font-size:15px;color:var(--charcoal);">Detail — as entered in the sheet</div>
     <table style="margin-top:8px;">
       <thead><tr><th>Qualification</th><th>Headcount</th><th>Share</th></tr></thead>
@@ -2420,9 +2465,9 @@ function renderDemoGrade(employees, resolved, total) {
     const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
     counts[v] = (counts[v] || 0) + 1;
   });
-  // Grades are usually ordered (L1, L2... or A, B, C...) — sort by label so
-  // the chart and cards read top-to-bottom rather than by frequency.
-  const labels = Object.keys(counts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  // Grades are sequential (L1, L2... V1, V2), not alphabetical text —
+  // naturalGradeSort keeps them in true order on the chart and cards.
+  const labels = Object.keys(counts).sort(naturalGradeSort);
   const values = labels.map(l => counts[l]);
   const palette = [CHART_COLORS.navy, CHART_COLORS.teal, CHART_COLORS.gold, CHART_COLORS.red, CHART_COLORS.charcoalSoft, '#9c6b9e', '#5a7a99'];
 
@@ -2516,6 +2561,59 @@ function renderDemoTenure(employees, resolved, total) {
   chartInstances['chartDemoTenure'] = new Chart(ctx, {
     type: 'bar',
     data: { labels: bands.map(b=>b[0]), datasets: [{ label:'Employees', data: counts, backgroundColor: CHART_COLORS.teal }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+  });
+}
+
+/**
+ * Extracts a numeric year value from a Previous Experience cell, which
+ * could be stored as a plain number (3.5) or text like "3.5 yrs" /
+ * "3 years 6 months". Pulls the first numeric token found.
+ */
+function parsePrevExpYears(raw) {
+  if (raw === null || raw === undefined) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const match = s.match(/[\d.]+/);
+  if (!match) return null;
+  const n = parseFloat(match[0]);
+  return isNaN(n) ? null : n;
+}
+
+function renderDemoPrevExp(employees, resolved, total) {
+  const wrap = document.getElementById('demoPrevExpWrap');
+  const col = resolved.prevExp;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Previous Experience column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const bands = [ ['0 yr',0,0.01], ['<2 yr',0.01,2], ['2–5 yr',2,5], ['5–10 yr',5,10], ['10–15 yr',10,15], ['15+ yr',15,999] ];
+  const counts = bands.map(() => 0);
+  let unknown = 0, sum = 0, n = 0;
+  employees.forEach(e => {
+    const yrs = parsePrevExpYears(e[col]);
+    if (yrs === null) { unknown++; return; }
+    sum += yrs; n++;
+    const idx = bands.findIndex((b,i) => i === bands.length-1 ? yrs >= b[1] : yrs >= b[1] && yrs < b[2]);
+    if (idx >= 0) counts[idx]++;
+  });
+  const activeBands = bands.filter((b,i) => counts[i] > 0);
+  const activeCounts = counts.filter(c => c > 0);
+  const avg = n ? sum / n : 0;
+
+  wrap.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:16px;">
+      <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Employees with data</div><div class="stat-value">${n}<span class="unit"> / ${total}</span></div></div>
+      <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Avg Previous Experience</div><div class="stat-value">${avg.toFixed(1)}<span class="unit"> yrs</span></div></div>
+    </div>
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoPrevExp"></canvas></div>
+    ${unknown ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-top:8px;">${unknown} employee${unknown>1?'s':''} with no usable Previous Experience value.</div>` : ''}
+  `;
+  destroyChart('chartDemoPrevExp');
+  const ctx = document.getElementById('chartDemoPrevExp').getContext('2d');
+  chartInstances['chartDemoPrevExp'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: activeBands.map(b=>b[0]), datasets: [{ label:'Employees', data: activeCounts, backgroundColor: CHART_COLORS.gold }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
   });
 }
@@ -2648,7 +2746,7 @@ function renderCompExplorer(employees, resolved, total) {
   const depts = [...new Set(paid.map(x => x.e.Department).filter(Boolean))].sort();
   const locations = resolved.location ? [...new Set(paid.map(x => x.e[resolved.location]).filter(Boolean))].sort() : [];
   const genders = resolved.gender ? [...new Set(paid.map(x => x.e[resolved.gender]).filter(Boolean))].sort() : [];
-  const grades = resolved.grade ? [...new Set(paid.map(x => x.e[resolved.grade]).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true})) : [];
+  const grades = resolved.grade ? [...new Set(paid.map(x => x.e[resolved.grade]).filter(Boolean))].sort(naturalGradeSort) : [];
 
   wrap.innerHTML = `
     <div class="filter-bar" style="margin: -18px -20px 18px; border-radius: 0;">
@@ -2725,7 +2823,7 @@ function applyCompExplorerFilters(paid, resolved) {
     renderCompExplorerGroupBreakdown(filtered, resolved.location, 'chartCompExplorerLocation', 'compExplorerLocationTableWrap');
   }
   if (resolved.grade) {
-    renderCompExplorerGroupBreakdown(filtered, resolved.grade, 'chartCompExplorerGrade', 'compExplorerGradeTableWrap');
+    renderCompExplorerGroupBreakdown(filtered, resolved.grade, 'chartCompExplorerGrade', 'compExplorerGradeTableWrap', 'sequence');
   }
   renderCompExplorerBands(filtered);
   renderCompExplorerTable(filtered);
@@ -2744,7 +2842,7 @@ function renderCompExplorerStats(filtered) {
   `;
 }
 
-function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableWrapId) {
+function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableWrapId, sortMode) {
   const groups = {};
   filtered.forEach(x => {
     const key = isBlankValue(x.e[groupField]) ? 'Not specified' : String(x.e[groupField]).trim();
@@ -2754,39 +2852,64 @@ function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableW
     groups[key].min = Math.min(groups[key].min, x.annual);
     groups[key].max = Math.max(groups[key].max, x.annual);
   });
-  // Bars show TOTAL annual cost per group (the actual payroll weight), sorted
-  // highest-cost first. The dashed line is the average of those group totals
-  // — a benchmark so it's visible at a glance which groups sit above/below it,
-  // not an average of individual salaries.
-  const entries = Object.entries(groups).sort((a, b) => b[1].sum - a[1].sum);
-  const totals = entries.map(([,v]) => v.sum);
-  const avgOfTotals = totals.length ? totals.reduce((a,b) => a+b, 0) / totals.length : 0;
+
+  // Grades read in sequence (L1, L2... V2); Department/Location read by cost,
+  // biggest payroll weight first — both are more useful than alphabetical.
+  const entries = sortMode === 'sequence'
+    ? Object.entries(groups).sort((a, b) => naturalGradeSort(a[0], b[0]))
+    : Object.entries(groups).sort((a, b) => b[1].sum - a[1].sum);
+
+  const grandTotal = entries.reduce((s, [,v]) => s + v.sum, 0);
 
   destroyChart(canvasId);
   const canvas = document.getElementById(canvasId);
   if (canvas) {
     const ctx = canvas.getContext('2d');
     chartInstances[canvasId] = new Chart(ctx, {
-      type: 'bar',
       data: {
         labels: entries.map(([k]) => k),
         datasets: [
-          { type: 'bar', label: 'Total Annual CTC', data: entries.map(([,v]) => Math.round(v.sum)), backgroundColor: CHART_COLORS.navy },
-          { type: 'line', label: 'Average across groups', data: entries.map(() => Math.round(avgOfTotals)), borderColor: CHART_COLORS.red, borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false }
+          {
+            type: 'bar', label: 'Total Annual CTC', yAxisID: 'y',
+            data: entries.map(([,v]) => Math.round(v.sum)), backgroundColor: CHART_COLORS.navy
+          },
+          {
+            // Per-group average — a genuine line that rises and falls with
+            // each department/grade's own average, not one flat benchmark.
+            type: 'line', label: 'Avg CTC per employee', yAxisID: 'y1',
+            data: entries.map(([,v]) => Math.round(v.sum / v.count)),
+            borderColor: CHART_COLORS.red, backgroundColor: CHART_COLORS.red,
+            borderDash: [6,4], borderWidth: 2, pointRadius: 3, pointBackgroundColor: CHART_COLORS.red, fill: false
+          }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        scales: { y: { ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' } } },
+        scales: {
+          y: { position: 'left', ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' }, title: { display: true, text: 'Total Annual CTC', font: { family: 'Calibri', size: 11 } } },
+          y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' }, title: { display: true, text: 'Avg per employee', font: { family: 'Calibri', size: 11 } } }
+        },
         plugins: {
           legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } },
-          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ₹' + ctx.raw.toLocaleString('en-IN') } }
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                if (ctx.dataset.label === 'Total Annual CTC') {
+                  const pct = grandTotal ? Math.round((ctx.raw / grandTotal) * 100) : 0;
+                  return `${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')} (${pct}% of total)`;
+                }
+                return `${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}`;
+              }
+            }
+          }
         }
       }
     });
   }
 
-  const rows = entries.map(([k, v]) => `
+  const rows = entries.map(([k, v]) => {
+    const pct = grandTotal ? Math.round((v.sum / grandTotal) * 100) : 0;
+    return `
     <tr class="row-rail">
       <td style="font-weight:600;">${escapeHtml(k)}</td>
       <td>${v.count}</td>
@@ -2794,11 +2917,13 @@ function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableW
       <td>₹${Math.round(v.sum/v.count).toLocaleString('en-IN')}</td>
       <td>₹${Math.round(v.max).toLocaleString('en-IN')}</td>
       <td style="font-weight:600;">₹${Math.round(v.sum).toLocaleString('en-IN')}</td>
-    </tr>`).join('');
+      <td>${pct}%</td>
+    </tr>`;
+  }).join('');
   document.getElementById(tableWrapId).innerHTML = `
     <table>
-      <thead><tr><th>${escapeHtml(groupField.replace(/_/g,' '))}</th><th>Headcount</th><th>Min Annual</th><th>Avg Annual</th><th>Max Annual</th><th>Total Annual</th></tr></thead>
-      <tbody>${rows || renderEmptyRow(6,'No matching records.')}</tbody>
+      <thead><tr><th>${escapeHtml(groupField.replace(/_/g,' '))}</th><th>Headcount</th><th>Min Annual</th><th>Avg Annual</th><th>Max Annual</th><th>Total Annual</th><th>% of Total CTC</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(7,'No matching records.')}</tbody>
     </table>`;
 }
 
@@ -2808,13 +2933,17 @@ function renderCompExplorerBands(filtered) {
     const idx = CTC_BANDS.findIndex(b => x.annual >= b[1] && x.annual < b[2]);
     if (idx >= 0) counts[idx]++;
   });
+  // Only show bands that actually have someone in them — an empty "25L+"
+  // bar with nobody in it is just noise.
+  const activeBands = CTC_BANDS.filter((b, i) => counts[i] > 0);
+  const activeCounts = counts.filter(c => c > 0);
   destroyChart('chartCompExplorerBands');
   const canvas = document.getElementById('chartCompExplorerBands');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   chartInstances['chartCompExplorerBands'] = new Chart(ctx, {
     type: 'bar',
-    data: { labels: CTC_BANDS.map(b => b[0]), datasets: [{ label: 'Employees', data: counts, backgroundColor: CHART_COLORS.gold }] },
+    data: { labels: activeBands.map(b => b[0]), datasets: [{ label: 'Employees', data: activeCounts, backgroundColor: CHART_COLORS.gold }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
   });
 }
