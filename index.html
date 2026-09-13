@@ -2160,6 +2160,17 @@ function naturalGradeSort(a, b) {
   return pa.num - pb.num;
 }
 
+/**
+ * A labeled callout box for interpretive/benchmark commentary under a chart
+ * or table — general HR and real-estate-industry context to read the panel
+ * against, not a claim about this company's specific live numbers (which
+ * this function never sees). Kept short and specific to what that panel
+ * type reveals.
+ */
+function insightBox(html) {
+  return `<div style="margin-top:14px; padding:12px 14px; background:#F4F1E8; border-left:3px solid var(--gold); border-radius:0 6px 6px 0; font-size:12.5px; line-height:1.6; color:var(--charcoal);"><div style="color:#8f6c1e; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:4px;">CHRO insight</div>${html}</div>`;
+}
+
 function untrackedNote(msg) {
   return `<span style="color:var(--charcoal-soft);font-style:italic;">${msg}</span>`;
 }
@@ -2195,13 +2206,13 @@ function renderTenureSearchResults(query) {
   const joinedCol = currentResolvedFields.joined || 'Date_Joined_Mangalam';
   const prevExpCol = currentResolvedFields.prevExp;
   const rows = matches.map(e => {
-    // Total = full career (careerCol -> now).
     // Current = tenure at Mangalam (joinedCol -> now).
     // Previous: prefer the sheet's own Previous Experience column when
     // present — that's the authoritative source. Only fall back to
-    // subtracting (Total - Current) when that column isn't available,
-    // and label the fallback as an estimate so the two are never confused.
-    const totalYrs = tenureYearsDecimal(e[careerCol]);
+    // subtracting (career-start-based total - Current) when that column
+    // isn't available, and label the fallback as an estimate.
+    // Total is then the actual SUM of Current + Previous — not a separately
+    // computed figure — so the three numbers always add up on screen.
     const currentYrs = tenureYearsDecimal(e[joinedCol]);
     let prevYrs = null;
     let prevFromSheet = false;
@@ -2209,8 +2220,18 @@ function renderTenureSearchResults(query) {
       prevYrs = parsePrevExpYears(e[prevExpCol]);
       prevFromSheet = prevYrs !== null;
     }
-    if (prevYrs === null && totalYrs !== null && currentYrs !== null) {
-      prevYrs = Math.max(totalYrs - currentYrs, 0);
+    let totalYrs;
+    if (prevYrs === null) {
+      // No Previous Experience value at all — fall back to the career-start
+      // date as the only available Total figure, and back-derive Previous
+      // from it so Current + Previous still equals what's displayed as Total.
+      const careerBasedTotal = tenureYearsDecimal(e[careerCol]);
+      totalYrs = careerBasedTotal;
+      if (careerBasedTotal !== null && currentYrs !== null) {
+        prevYrs = Math.max(careerBasedTotal - currentYrs, 0);
+      }
+    } else {
+      totalYrs = currentYrs !== null ? currentYrs + prevYrs : null;
     }
     const prevLabel = prevYrs === null ? '—' : `${formatYears(prevYrs)}${prevFromSheet ? '' : ' (est.)'}`;
     return `
@@ -2330,7 +2351,7 @@ function renderDemoGender(employees, resolved, total) {
         </div>`).join('')}
     </div>
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoGender"></canvas></div>
-  `;
+  ` + insightBox(`India's real estate/infrastructure sector is projected to post the highest salary growth of any tracked sector in 2026, at 10.9% (Aon Salary Survey 2025-26). Compensation cycles like this are exactly when gender pay gaps quietly widen — check the Pay Ratio panel below whenever this split shifts, not just at annual review time.`);
   destroyChart('chartDemoGender');
   const ctx = document.getElementById('chartDemoGender').getContext('2d');
   chartInstances['chartDemoGender'] = new Chart(ctx, {
@@ -2365,7 +2386,7 @@ function renderDemoMarital(employees, resolved, total) {
         </div>`).join('')}
     </div>
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoMarital"></canvas></div>
-  `;
+  ` + insightBox(`On its own this is a low-signal field — but cross-referenced with the Age and Tenure panels, it flags which cohorts are most exposed to relocation resistance and caregiving-related attrition, both material in a project-based, site-heavy business like real estate.`);
   destroyChart('chartDemoMarital');
   const ctx = document.getElementById('chartDemoMarital').getContext('2d');
   chartInstances['chartDemoMarital'] = new Chart(ctx, {
@@ -2443,7 +2464,7 @@ function renderDemoEducation(employees, resolved, total) {
       <tbody>${rawRows || renderEmptyRow(3,'No qualification data available.')}</tbody>
     </table>
     <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Category grouping is keyword-based (matches terms like "B.E.", "MBA", "Diploma", "PhD"). Review any "Other / Unclassified" entries and standardize the sheet text for a cleaner split over time.</div>
-  `;
+  ` + insightBox(`Postgraduate concentration at execution-level grades is a retention risk in disguise — overqualified-for-role employees tend to churn faster once external offers at their real skill level appear. If your Postgraduate share is high but concentrated in L-band roles rather than M/V-band, cross-check it against the Grade Mix panel; it may be signaling under-leveling more than an education problem.`);
   destroyChart('chartDemoEducation');
   const ctx = document.getElementById('chartDemoEducation').getContext('2d');
   chartInstances['chartDemoEducation'] = new Chart(ctx, {
@@ -2480,7 +2501,7 @@ function renderDemoGrade(employees, resolved, total) {
         </div>`).join('')}
     </div>
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoGrade"></canvas></div>
-  `;
+  ` + insightBox(`A healthy execution-heavy organization structure usually holds roughly 60–70% of headcount at junior/execution grades, 15–20% at mid-management, and under 10% at senior leadership. A pyramid that's noticeably top-heavy inflates average CTC and signals succession risk; one that's bottom-heavy with a thin middle usually means weak internal promotion pipelines. Compare this shape against your Compensation Deep-Dive's CTC-by-grade view to see if pay is following the same shape.`);
   destroyChart('chartDemoGrade');
   const ctx = document.getElementById('chartDemoGrade').getContext('2d');
   chartInstances['chartDemoGrade'] = new Chart(ctx, {
@@ -2524,7 +2545,7 @@ function renderDemoAge(employees, resolved, total) {
   wrap.innerHTML = `
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoAge"></canvas></div>
     ${unknown ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-top:8px;">${unknown} employee${unknown>1?'s':''} with no usable age data.</div>` : ''}
-  `;
+  ` + insightBox(`A workforce concentrated in one 10-year band creates a succession cliff — if your 45–54 or 55+ bands are heavy at leadership grades with no 25–34 bench underneath them in the same function, that's a 5–7 year retirement wave with no ready replacement. Cross-check this against Grade Mix to see whether age and seniority are moving together or diverging.`);
   destroyChart('chartDemoAge');
   const ctx = document.getElementById('chartDemoAge').getContext('2d');
   chartInstances['chartDemoAge'] = new Chart(ctx, {
@@ -2555,7 +2576,7 @@ function renderDemoTenure(employees, resolved, total) {
   wrap.innerHTML = `
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoTenure"></canvas></div>
     ${unknown ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-top:8px;">${unknown} employee${unknown>1?'s':''} with no usable join date.</div>` : ''}
-  `;
+  ` + insightBox(`The 12–24 month tenure band is the single highest attrition-risk window across Indian sectors, and supervisor behavior — not compensation — is the leading real driver of exits when employees are asked candidly, not in an internal exit interview (AceNgage exit-interview data, 300+ organisations). If your "1–3 yr" band is unusually large relative to headcount, that's where manager-quality reviews will pay off faster than a pay revision.`);
   destroyChart('chartDemoTenure');
   const ctx = document.getElementById('chartDemoTenure').getContext('2d');
   chartInstances['chartDemoTenure'] = new Chart(ctx, {
@@ -2608,7 +2629,7 @@ function renderDemoPrevExp(employees, resolved, total) {
     </div>
     <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoPrevExp"></canvas></div>
     ${unknown ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-top:8px;">${unknown} employee${unknown>1?'s':''} with no usable Previous Experience value.</div>` : ''}
-  `;
+  ` + insightBox(`High average prior experience concentrated at junior/mid grades usually means you're winning candidates from other companies rather than building fresh talent — fine if intentional, but it also means you're paying a lateral-hire premium instead of growing cheaper internal pipelines. Low prior experience at senior grades is the opposite flag: fast internal promotion, which is good for retention but worth checking against actual readiness.`);
   destroyChart('chartDemoPrevExp');
   const ctx = document.getElementById('chartDemoPrevExp').getContext('2d');
   chartInstances['chartDemoPrevExp'] = new Chart(ctx, {
@@ -2636,7 +2657,8 @@ function renderDemoLocation(employees, resolved, total) {
     <table>
       <thead><tr><th>Location</th><th>Headcount</th><th>Share</th></tr></thead>
       <tbody>${rows || renderEmptyRow(3,'No location data available.')}</tbody>
-    </table>`;
+    </table>
+  ` + insightBox(`West and Central India — Mumbai, Pune, Ahmedabad — holds roughly a third of India's real estate market by value (Mordor Intelligence, 2026), so pay differentials between these locations are common and often defensible on cost-of-living and project-mix grounds. The useful check isn't whether locations differ in pay — it's whether that difference is explainable when you overlay it on the CTC-by-location chart in Compensation Deep-Dive, or whether it's just historical drift.`);
 }
 
 /**
@@ -2708,7 +2730,7 @@ function renderDemoPayRatio(employees, resolved, total) {
       <tbody>${rows}</tbody>
     </table>
     <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Ratio = average annual CTC of the group ÷ average annual CTC of the highest-paid group. ${!annualCol ? 'Annual figures derived as Monthly CTC × 12 since no separate Annual CTC column was found. ' : ''}Directional only — not adjusted for role, level, or tenure mix.</div>
-  `;
+  ` + insightBox(`This raw ratio conflates two very different things — a real pay gap, or simply more men/women sitting at senior grades. Before treating a gap here as a governance issue, re-run it filtered by a single Grade in Compensation Deep-Dive; a gap that disappears within-grade is a pipeline problem (who gets promoted), not a pay-equity problem, and the two need completely different fixes.`);
 }
 
 /* ============== COMPENSATION DEEP-DIVE ============== */
@@ -2781,7 +2803,7 @@ function renderCompExplorer(employees, resolved, total) {
 
     <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">Individual CTC explorer <span style="font-size:11.5px;color:var(--charcoal-soft);font-family:Calibri;">(click "Annual CTC" to sort)</span></div>
     <div class="table-scroll" id="compExplorerTableWrap"></div>
-  `;
+  ` + insightBox(`Two numbers worth watching together here: real estate/infrastructure is projected to lead India's 2026 salary growth at 10.9% (Aon), so external offers at 10–15% premiums will be common this cycle — while replacing a mid-level employee typically costs 40–200% of their annual salary once hiring, onboarding, and lost-productivity time are counted (India HR industry data). Read the % of Total CTC column against each group's headcount share: a department or grade that's a small slice of headcount but a disproportionate slice of cost is either your highest-leverage function or a retention risk you can't afford to lose quietly.`);
 
   document.getElementById('compSearchInput').addEventListener('input', (e) => { compExplorerState.search = e.target.value; applyCompExplorerFilters(paid, resolved); });
   document.getElementById('compDeptFilter').addEventListener('change', (e) => { compExplorerState.dept = e.target.value; applyCompExplorerFilters(paid, resolved); });
