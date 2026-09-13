@@ -1037,7 +1037,7 @@
     <div class="panel">
       <div class="panel-head">
         <div class="panel-title">Data Completeness</div>
-        <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field. PAN and Aadhaar are checked for presence only — the actual numbers are never shown on this dashboard.</div>
+        <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field. PAN, Aadhaar, and CTC figures are checked for presence only — the actual numbers are never shown on this dashboard.</div>
       </div>
       <div class="table-scroll" id="demoCompletenessWrap">
         <div class="loading-state"><div class="spinner"></div>Loading…</div>
@@ -2078,23 +2078,24 @@ async function loadAttrition() {
 // "gender", etc. — no server-side change required as long as the column
 // exists somewhere in the row returned by getEmployees().
 const DEMO_FIELDS = [
-  { key: 'gender',   label: 'Gender',              candidates: ['Gender','Sex'] },
-  { key: 'dob',      label: 'Date of Birth',       candidates: ['Date_Of_Birth','DOB','Birth_Date'] },
-  { key: 'age',      label: 'Age',                 candidates: ['Age'] },
-  { key: 'location', label: 'Work Location',       candidates: ['Location','Work_Location','City','Branch','Site'] },
-  { key: 'marital',  label: 'Marital Status',      candidates: ['Marital_Status','Marital'] },
-  { key: 'blood',    label: 'Blood Group',         candidates: ['Blood_Group','BloodGroup'] },
-  { key: 'pan',      label: 'PAN Number',          candidates: ['PAN','PAN_Number','PAN_No','Pan_No'] },
-  { key: 'aadhaar',  label: 'Aadhaar Number',      candidates: ['Aadhaar','Aadhar','Aadhaar_Number','Aadhar_Number','Aadhaar_No','UID'] },
-  { key: 'email',    label: 'Email',                candidates: ['Email'] },
-  { key: 'manager',  label: 'Manager',              candidates: ['Manager'] },
-  { key: 'qual',     label: 'Qualification',       candidates: ['Qualification'] },
-  { key: 'career',   label: 'Career Start Date',   candidates: ['Career_Start_Date'] },
-  { key: 'joined',   label: 'Date Joined Mangalam',candidates: ['Date_Joined_Mangalam'] },
-  { key: 'ctc',      label: 'CTC (Compensation)',  candidates: ['CTC'] }
+  { key: 'gender',     label: 'Gender',              candidates: ['Gender','Sex'] },
+  { key: 'dob',        label: 'Date of Birth',       candidates: ['Date_Of_Birth','DOB','Birth_Date','D_O_B'] },
+  { key: 'age',        label: 'Age',                 candidates: ['Age'] },
+  { key: 'location',   label: 'Work Location',       candidates: ['Location','Work_Location','City','Branch','Site'] },
+  { key: 'marital',    label: 'Marital Status',      candidates: ['Marital_Status','Marital'] },
+  { key: 'blood',      label: 'Blood Group',         candidates: ['Blood_Group','BloodGroup'] },
+  { key: 'pan',        label: 'PAN Number',          candidates: ['PAN','PAN_Number','PAN_No','Pan_No'] },
+  { key: 'aadhaar',    label: 'Aadhaar Number',      candidates: ['Aadhaar','Aadhar','Aadhaar_Number','Aadhar_Number','Aadhaar_No','UID'] },
+  { key: 'email',      label: 'Email',                candidates: ['Email'] },
+  { key: 'manager',    label: 'Manager',              candidates: ['Manager'] },
+  { key: 'qual',       label: 'Qualification',       candidates: ['Qualification'] },
+  { key: 'career',     label: 'Career Start Date',   candidates: ['Career_Start_Date'] },
+  { key: 'joined',     label: 'Date Joined Mangalam',candidates: ['Date_Joined_Mangalam','DOJ','Date_Of_Joining','D_O_J','Joining_Date'] },
+  { key: 'ctcMonthly', label: 'Monthly CTC',         candidates: ['Monthly_CTC','CTC_Monthly','Monthly_Gross','CTC_Per_Month','Monthly_Salary'] },
+  { key: 'ctcAnnual',  label: 'Annual CTC',          candidates: ['Annual_CTC','CTC_Annual','CTC_PA','CTC_Per_Annum','Yearly_CTC','CTC'] }
 ];
 
-function normalizeDemoKey(k) { return String(k).toLowerCase().replace(/[_\s]/g, ''); }
+function normalizeDemoKey(k) { return String(k).toLowerCase().replace(/[_\s.]/g, ''); }
 
 function detectDemoField(employees, candidates) {
   if (!employees.length) return null;
@@ -2111,6 +2112,8 @@ function detectDemoField(employees, candidates) {
 function isBlankValue(v) {
   return v === undefined || v === null || String(v).trim() === '';
 }
+
+let currentResolvedFields = {};
 
 function untrackedNote(msg) {
   return `<span style="color:var(--charcoal-soft);font-style:italic;">${msg}</span>`;
@@ -2143,13 +2146,15 @@ function renderTenureSearchResults(query) {
     wrap.innerHTML = `<table><tbody>${renderEmptyRow(7, 'No employees match that search.')}</tbody></table>`;
     return;
   }
+  const careerCol = currentResolvedFields.career || 'Career_Start_Date';
+  const joinedCol = currentResolvedFields.joined || 'Date_Joined_Mangalam';
   const rows = matches.map(e => {
-    // Total = full career (Career_Start_Date -> now).
-    // Current = tenure at Mangalam (Date_Joined_Mangalam -> now).
+    // Total = full career (careerCol -> now).
+    // Current = tenure at Mangalam (joinedCol -> now).
     // Previous = whatever career time isn't accounted for by the current
     // stint here, i.e. experience before joining Mangalam.
-    const totalYrs = tenureYearsDecimal(e.Career_Start_Date);
-    const currentYrs = tenureYearsDecimal(e.Date_Joined_Mangalam);
+    const totalYrs = tenureYearsDecimal(e[careerCol]);
+    const currentYrs = tenureYearsDecimal(e[joinedCol]);
     const prevYrs = (totalYrs !== null && currentYrs !== null) ? Math.max(totalYrs - currentYrs, 0) : null;
     return `
       <tr class="row-rail">
@@ -2188,6 +2193,7 @@ async function loadDemographics() {
     // field (or null if that field isn't tracked at all).
     const resolved = {};
     DEMO_FIELDS.forEach(f => { resolved[f.key] = detectDemoField(employees, f.candidates); });
+    currentResolvedFields = resolved;
 
     const untracked = DEMO_FIELDS.filter(f => !resolved[f.key]).map(f => f.label);
     if (untracked.length) {
@@ -2481,38 +2487,55 @@ function renderDemoLocation(employees, resolved, total) {
 function renderDemoPayRatio(employees, resolved, total) {
   const wrap = document.getElementById('demoPayRatioWrap');
   const genderCol = resolved.gender;
-  const ctcCol = resolved.ctc;
-  if (!ctcCol) {
-    wrap.innerHTML = `<div class="loading-state">${lockedField()} Compensation data is restricted to CEO / COO / VP-HR access, or CTC is not present on this token's response.</div>`;
+  const annualCol = resolved.ctcAnnual;
+  const monthlyCol = resolved.ctcMonthly;
+  if (!annualCol && !monthlyCol) {
+    wrap.innerHTML = `<div class="loading-state">${lockedField()} Compensation data is restricted to CEO / COO / VP-HR access, or no Monthly/Annual CTC column is present on this token's response.</div>`;
     return;
   }
   if (!genderCol) {
     wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Gender column found — cannot compute a gender pay ratio.')}</div>`;
     return;
   }
+  // Prefer Annual CTC as the comparison basis; derive it from Monthly x 12
+  // when Annual isn't directly present, so the ratio stays on one consistent unit.
+  function annualCtcFor(e) {
+    if (annualCol && !isBlankValue(e[annualCol])) {
+      const v = parseFloat(e[annualCol]);
+      return isNaN(v) ? null : v;
+    }
+    if (monthlyCol && !isBlankValue(e[monthlyCol])) {
+      const v = parseFloat(e[monthlyCol]);
+      return isNaN(v) ? null : v * 12;
+    }
+    return null;
+  }
+
   const groups = {};
   employees.forEach(e => {
-    if (isBlankValue(e[genderCol]) || isBlankValue(e[ctcCol])) return;
+    if (isBlankValue(e[genderCol])) return;
+    const annual = annualCtcFor(e);
+    if (annual === null) return;
     const g = String(e[genderCol]).trim();
-    const ctc = parseFloat(e[ctcCol]);
-    if (isNaN(ctc)) return;
-    if (!groups[g]) groups[g] = { sum:0, count:0 };
-    groups[g].sum += ctc;
+    if (!groups[g]) groups[g] = { sum: 0, count: 0 };
+    groups[g].sum += annual;
     groups[g].count++;
   });
-  const entries = Object.entries(groups).map(([g,s]) => [g, s.sum/s.count, s.count]);
+  const entries = Object.entries(groups).map(([g, s]) => [g, s.sum / s.count, s.count]);
   if (entries.length < 2) {
     wrap.innerHTML = `<div class="loading-state">Not enough gender-tagged compensation data to compute a ratio yet.</div>`;
     return;
   }
   const maxAvg = Math.max(...entries.map(e => e[1]));
-  const rows = entries.map(([g,avg,count]) => {
-    const ratio = maxAvg ? Math.round((avg/maxAvg)*100) : 0;
+  const rows = entries.map(([g, avgAnnual, count]) => {
+    const ratio = maxAvg ? Math.round((avgAnnual / maxAvg) * 100) : 0;
+    const avgMonthly = avgAnnual / 12;
     return `
       <tr class="row-rail">
         <td style="font-weight:600;">${escapeHtml(g)}</td>
         <td>${count}</td>
-        <td>₹${Math.round(avg).toLocaleString('en-IN')}</td>
+        <td>₹${Math.round(avgMonthly).toLocaleString('en-IN')}</td>
+        <td>₹${Math.round(avgAnnual).toLocaleString('en-IN')}</td>
         <td>
           <span style="font-size:12px;font-weight:600;">${ratio}%</span>
           <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${ratio}%;background:var(--navy);"></div></div>
@@ -2521,10 +2544,10 @@ function renderDemoPayRatio(employees, resolved, total) {
   }).join('');
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Gender</th><th>Headcount</th><th>Average CTC</th><th>Ratio to highest-paid group</th></tr></thead>
+      <thead><tr><th>Gender</th><th>Headcount</th><th>Avg Monthly CTC</th><th>Avg Annual CTC</th><th>Ratio to highest-paid group</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Ratio = average CTC of the group ÷ average CTC of the highest-paid group. Directional only — not adjusted for role, level, or tenure mix.</div>
+    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Ratio = average annual CTC of the group ÷ average annual CTC of the highest-paid group. ${!annualCol ? 'Annual figures derived as Monthly CTC × 12 since no separate Annual CTC column was found. ' : ''}Directional only — not adjusted for role, level, or tenure mix.</div>
   `;
 }
 
