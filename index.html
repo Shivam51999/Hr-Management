@@ -1059,6 +1059,13 @@
     </div>
 
     <div class="panel">
+      <div class="panel-head"><div class="panel-title">Grade / Band Mix</div></div>
+      <div class="panel-body padded" id="demoGradeWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-head"><div class="panel-title">Age Distribution</div></div>
       <div class="panel-body padded" id="demoAgeWrap">
         <div class="loading-state"><div class="spinner"></div>Loading…</div>
@@ -1095,6 +1102,16 @@
         <div class="view-sub" style="margin:0;">Average CTC comparison — restricted view</div>
       </div>
       <div class="panel-body padded" id="demoPayRatioWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Compensation Deep-Dive</div>
+        <div class="view-sub" style="margin:0;">Filter, search, and break down CTC by department, location, salary band, and individual — restricted view</div>
+      </div>
+      <div class="panel-body padded" id="compExplorerWrap">
         <div class="loading-state"><div class="spinner"></div>Loading…</div>
       </div>
     </div>
@@ -2079,6 +2096,7 @@ async function loadAttrition() {
 // exists somewhere in the row returned by getEmployees().
 const DEMO_FIELDS = [
   { key: 'gender',     label: 'Gender',              candidates: ['Gender','Sex'] },
+  { key: 'grade',      label: 'Grade / Band',        candidates: ['Grade','Band','Job_Grade','Pay_Grade','Level','Job_Level','Employee_Grade','Salary_Grade'] },
   { key: 'dob',        label: 'Date of Birth',       candidates: ['Date_Of_Birth','DOB','Birth_Date','D_O_B'] },
   { key: 'age',        label: 'Age',                 candidates: ['Age'] },
   { key: 'location',   label: 'Work Location',       candidates: ['Location','Work_Location','City','Branch','Site'] },
@@ -2178,7 +2196,7 @@ document.getElementById('tenureSearchInput').addEventListener('input', (e) => re
 
 async function loadDemographics() {
   const noteEl = document.getElementById('demoNote');
-  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoMaritalWrap','demoAgeWrap','demoTenureWrap','demoEducationWrap','demoLocationWrap','demoPayRatioWrap'];
+  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoMaritalWrap','demoGradeWrap','demoAgeWrap','demoTenureWrap','demoEducationWrap','demoLocationWrap','demoPayRatioWrap','compExplorerWrap'];
   noteEl.innerHTML = '';
   panelIds.forEach(id => {
     document.getElementById(id).innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading…</div>`;
@@ -2205,11 +2223,13 @@ async function loadDemographics() {
     renderDemoCompleteness(employees, resolved, total);
     renderDemoGender(employees, resolved, total);
     renderDemoMarital(employees, resolved, total);
+    renderDemoGrade(employees, resolved, total);
     renderDemoAge(employees, resolved, total);
     renderDemoTenure(employees, resolved, total);
     renderDemoEducation(employees, resolved, total);
     renderDemoLocation(employees, resolved, total);
     renderDemoPayRatio(employees, resolved, total);
+    renderCompExplorer(employees, resolved, total);
   } catch (err) {
     panelIds.forEach(id => {
       document.getElementById(id).innerHTML = `<div class="error-state">Could not load demographics. ${escapeHtml(err.message)}</div>`;
@@ -2388,6 +2408,43 @@ function renderDemoEducation(employees, resolved, total) {
   });
 }
 
+function renderDemoGrade(employees, resolved, total) {
+  const wrap = document.getElementById('demoGradeWrap');
+  const col = resolved.grade;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Grade / Band column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const counts = {};
+  employees.forEach(e => {
+    const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
+    counts[v] = (counts[v] || 0) + 1;
+  });
+  // Grades are usually ordered (L1, L2... or A, B, C...) — sort by label so
+  // the chart and cards read top-to-bottom rather than by frequency.
+  const labels = Object.keys(counts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const values = labels.map(l => counts[l]);
+  const palette = [CHART_COLORS.navy, CHART_COLORS.teal, CHART_COLORS.gold, CHART_COLORS.red, CHART_COLORS.charcoalSoft, '#9c6b9e', '#5a7a99'];
+
+  wrap.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:16px;">
+      ${labels.map((l,i) => `
+        <div class="stat-card" style="--rail-color:${palette[i % palette.length]}">
+          <div class="stat-label">${escapeHtml(l)}</div>
+          <div class="stat-value">${counts[l]}<span class="unit"> (${total ? Math.round(counts[l]/total*100) : 0}%)</span></div>
+        </div>`).join('')}
+    </div>
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoGrade"></canvas></div>
+  `;
+  destroyChart('chartDemoGrade');
+  const ctx = document.getElementById('chartDemoGrade').getContext('2d');
+  chartInstances['chartDemoGrade'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Employees', data: values, backgroundColor: labels.map((_,i)=>palette[i % palette.length]) }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+  });
+}
+
 function computeDemoAge(e, resolved) {
   if (resolved.age && !isBlankValue(e[resolved.age])) {
     const n = parseInt(e[resolved.age], 10);
@@ -2484,6 +2541,25 @@ function renderDemoLocation(employees, resolved, total) {
     </table>`;
 }
 
+/**
+ * Annual CTC for one employee, preferring a direct Annual CTC column and
+ * falling back to Monthly CTC x 12 when only that's present. Returns null
+ * if neither is available or parseable.
+ */
+function computeAnnualCTC(e, resolved) {
+  const annualCol = resolved.ctcAnnual;
+  const monthlyCol = resolved.ctcMonthly;
+  if (annualCol && !isBlankValue(e[annualCol])) {
+    const v = parseFloat(e[annualCol]);
+    return isNaN(v) ? null : v;
+  }
+  if (monthlyCol && !isBlankValue(e[monthlyCol])) {
+    const v = parseFloat(e[monthlyCol]);
+    return isNaN(v) ? null : v * 12;
+  }
+  return null;
+}
+
 function renderDemoPayRatio(employees, resolved, total) {
   const wrap = document.getElementById('demoPayRatioWrap');
   const genderCol = resolved.gender;
@@ -2497,24 +2573,10 @@ function renderDemoPayRatio(employees, resolved, total) {
     wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Gender column found — cannot compute a gender pay ratio.')}</div>`;
     return;
   }
-  // Prefer Annual CTC as the comparison basis; derive it from Monthly x 12
-  // when Annual isn't directly present, so the ratio stays on one consistent unit.
-  function annualCtcFor(e) {
-    if (annualCol && !isBlankValue(e[annualCol])) {
-      const v = parseFloat(e[annualCol]);
-      return isNaN(v) ? null : v;
-    }
-    if (monthlyCol && !isBlankValue(e[monthlyCol])) {
-      const v = parseFloat(e[monthlyCol]);
-      return isNaN(v) ? null : v * 12;
-    }
-    return null;
-  }
-
   const groups = {};
   employees.forEach(e => {
     if (isBlankValue(e[genderCol])) return;
-    const annual = annualCtcFor(e);
+    const annual = computeAnnualCTC(e, resolved);
     if (annual === null) return;
     const g = String(e[genderCol]).trim();
     if (!groups[g]) groups[g] = { sum: 0, count: 0 };
@@ -2549,6 +2611,226 @@ function renderDemoPayRatio(employees, resolved, total) {
     </table>
     <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Ratio = average annual CTC of the group ÷ average annual CTC of the highest-paid group. ${!annualCol ? 'Annual figures derived as Monthly CTC × 12 since no separate Annual CTC column was found. ' : ''}Directional only — not adjusted for role, level, or tenure mix.</div>
   `;
+}
+
+/* ============== COMPENSATION DEEP-DIVE ============== */
+
+const CTC_BANDS = [
+  ['< ₹3L', 0, 300000],
+  ['₹3L – 6L', 300000, 600000],
+  ['₹6L – 10L', 600000, 1000000],
+  ['₹10L – 15L', 1000000, 1500000],
+  ['₹15L – 25L', 1500000, 2500000],
+  ['₹25L+', 2500000, Infinity]
+];
+
+let compExplorerState = { dept: '', location: '', gender: '', grade: '', search: '', sortDesc: true };
+
+function renderCompExplorer(employees, resolved, total) {
+  const wrap = document.getElementById('compExplorerWrap');
+  const annualCol = resolved.ctcAnnual;
+  const monthlyCol = resolved.ctcMonthly;
+  if (!annualCol && !monthlyCol) {
+    wrap.innerHTML = `<div class="loading-state">${lockedField()} Compensation data is restricted to CEO / COO / VP-HR access, or no Monthly/Annual CTC column is present on this token's response.</div>`;
+    return;
+  }
+
+  // Only employees with usable CTC data feed every section below.
+  const paid = employees
+    .map(e => ({ e, annual: computeAnnualCTC(e, resolved) }))
+    .filter(x => x.annual !== null);
+
+  if (!paid.length) {
+    wrap.innerHTML = `<div class="loading-state">No employees have usable Monthly/Annual CTC values yet.</div>`;
+    return;
+  }
+
+  const depts = [...new Set(paid.map(x => x.e.Department).filter(Boolean))].sort();
+  const locations = resolved.location ? [...new Set(paid.map(x => x.e[resolved.location]).filter(Boolean))].sort() : [];
+  const genders = resolved.gender ? [...new Set(paid.map(x => x.e[resolved.gender]).filter(Boolean))].sort() : [];
+  const grades = resolved.grade ? [...new Set(paid.map(x => x.e[resolved.grade]).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true})) : [];
+
+  wrap.innerHTML = `
+    <div class="filter-bar" style="margin: -18px -20px 18px; border-radius: 0;">
+      <input type="text" id="compSearchInput" placeholder="Search name or ID…">
+      <select id="compDeptFilter"><option value="">All departments</option>${depts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
+      ${locations.length ? `<select id="compLocationFilter"><option value="">All locations</option>${locations.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('')}</select>` : ''}
+      ${genders.length ? `<select id="compGenderFilter"><option value="">All genders</option>${genders.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('')}</select>` : ''}
+      ${grades.length ? `<select id="compGradeFilter"><option value="">All grades</option>${grades.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('')}</select>` : ''}
+      <button class="filter-clear" id="compClearFilters">Clear filters</button>
+    </div>
+
+    <div class="stat-grid" id="compExplorerStats" style="margin-bottom:16px;"></div>
+
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">CTC by department</div>
+    <div class="chart-wrap chart-wrap-small" style="margin-bottom:12px;"><canvas id="chartCompExplorerDept"></canvas></div>
+    <div class="table-scroll" id="compExplorerDeptTableWrap" style="margin-bottom:20px;"></div>
+
+    ${locations.length ? `
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">CTC by location</div>
+    <div class="chart-wrap chart-wrap-small" style="margin-bottom:12px;"><canvas id="chartCompExplorerLocation"></canvas></div>
+    <div class="table-scroll" id="compExplorerLocationTableWrap" style="margin-bottom:20px;"></div>
+    ` : ''}
+
+    ${grades.length ? `
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">CTC by grade / band</div>
+    <div class="chart-wrap chart-wrap-small" style="margin-bottom:12px;"><canvas id="chartCompExplorerGrade"></canvas></div>
+    <div class="table-scroll" id="compExplorerGradeTableWrap" style="margin-bottom:20px;"></div>
+    ` : ''}
+
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">Salary band distribution</div>
+    <div class="chart-wrap chart-wrap-small" style="margin-bottom:20px;"><canvas id="chartCompExplorerBands"></canvas></div>
+
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">Individual CTC explorer <span style="font-size:11.5px;color:var(--charcoal-soft);font-family:Calibri;">(click "Annual CTC" to sort)</span></div>
+    <div class="table-scroll" id="compExplorerTableWrap"></div>
+  `;
+
+  document.getElementById('compSearchInput').addEventListener('input', (e) => { compExplorerState.search = e.target.value; applyCompExplorerFilters(paid, resolved); });
+  document.getElementById('compDeptFilter').addEventListener('change', (e) => { compExplorerState.dept = e.target.value; applyCompExplorerFilters(paid, resolved); });
+  const locFilter = document.getElementById('compLocationFilter');
+  if (locFilter) locFilter.addEventListener('change', (e) => { compExplorerState.location = e.target.value; applyCompExplorerFilters(paid, resolved); });
+  const genFilter = document.getElementById('compGenderFilter');
+  if (genFilter) genFilter.addEventListener('change', (e) => { compExplorerState.gender = e.target.value; applyCompExplorerFilters(paid, resolved); });
+  const gradeFilter = document.getElementById('compGradeFilter');
+  if (gradeFilter) gradeFilter.addEventListener('change', (e) => { compExplorerState.grade = e.target.value; applyCompExplorerFilters(paid, resolved); });
+  document.getElementById('compClearFilters').addEventListener('click', () => {
+    compExplorerState = { dept: '', location: '', gender: '', grade: '', search: '', sortDesc: true };
+    document.getElementById('compSearchInput').value = '';
+    document.getElementById('compDeptFilter').value = '';
+    if (locFilter) locFilter.value = '';
+    if (genFilter) genFilter.value = '';
+    if (gradeFilter) gradeFilter.value = '';
+    applyCompExplorerFilters(paid, resolved);
+  });
+
+  applyCompExplorerFilters(paid, resolved);
+}
+
+function applyCompExplorerFilters(paid, resolved) {
+  const s = compExplorerState;
+  const q = s.search.trim().toLowerCase();
+  const filtered = paid.filter(x => {
+    const e = x.e;
+    if (s.dept && e.Department !== s.dept) return false;
+    if (s.location && resolved.location && e[resolved.location] !== s.location) return false;
+    if (s.gender && resolved.gender && e[resolved.gender] !== s.gender) return false;
+    if (s.grade && resolved.grade && e[resolved.grade] !== s.grade) return false;
+    if (q && !(`${e.Name} ${e.ID}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  renderCompExplorerStats(filtered);
+  renderCompExplorerGroupBreakdown(filtered, 'Department', 'chartCompExplorerDept', 'compExplorerDeptTableWrap');
+  if (resolved.location) {
+    renderCompExplorerGroupBreakdown(filtered, resolved.location, 'chartCompExplorerLocation', 'compExplorerLocationTableWrap');
+  }
+  if (resolved.grade) {
+    renderCompExplorerGroupBreakdown(filtered, resolved.grade, 'chartCompExplorerGrade', 'compExplorerGradeTableWrap');
+  }
+  renderCompExplorerBands(filtered);
+  renderCompExplorerTable(filtered);
+}
+
+function renderCompExplorerStats(filtered) {
+  const el = document.getElementById('compExplorerStats');
+  const count = filtered.length;
+  const totalAnnual = filtered.reduce((sum, x) => sum + x.annual, 0);
+  const avgAnnual = count ? totalAnnual / count : 0;
+  el.innerHTML = `
+    <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Matching Employees</div><div class="stat-value">${count}</div></div>
+    <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Avg Monthly CTC</div><div class="stat-value">₹${Math.round(avgAnnual/12).toLocaleString('en-IN')}</div></div>
+    <div class="stat-card" style="--rail-color:var(--gold)"><div class="stat-label">Avg Annual CTC</div><div class="stat-value">₹${Math.round(avgAnnual).toLocaleString('en-IN')}</div></div>
+    <div class="stat-card" style="--rail-color:var(--charcoal-soft)"><div class="stat-label">Total Annual Outlay</div><div class="stat-value" style="font-size:22px;">₹${Math.round(totalAnnual).toLocaleString('en-IN')}</div></div>
+  `;
+}
+
+function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableWrapId) {
+  const groups = {};
+  filtered.forEach(x => {
+    const key = isBlankValue(x.e[groupField]) ? 'Not specified' : String(x.e[groupField]).trim();
+    if (!groups[key]) groups[key] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
+    groups[key].sum += x.annual;
+    groups[key].count++;
+    groups[key].min = Math.min(groups[key].min, x.annual);
+    groups[key].max = Math.max(groups[key].max, x.annual);
+  });
+  const entries = Object.entries(groups).sort((a, b) => (b[1].sum / b[1].count) - (a[1].sum / a[1].count));
+
+  destroyChart(canvasId);
+  const canvas = document.getElementById(canvasId);
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    chartInstances[canvasId] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: entries.map(([k]) => k),
+        datasets: [{ label: 'Avg Annual CTC', data: entries.map(([,v]) => Math.round(v.sum / v.count)), backgroundColor: CHART_COLORS.navy }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' } } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => '₹' + ctx.raw.toLocaleString('en-IN') } }
+        }
+      }
+    });
+  }
+
+  const rows = entries.map(([k, v]) => `
+    <tr class="row-rail">
+      <td style="font-weight:600;">${escapeHtml(k)}</td>
+      <td>${v.count}</td>
+      <td>₹${Math.round(v.min).toLocaleString('en-IN')}</td>
+      <td>₹${Math.round(v.sum/v.count).toLocaleString('en-IN')}</td>
+      <td>₹${Math.round(v.max).toLocaleString('en-IN')}</td>
+    </tr>`).join('');
+  document.getElementById(tableWrapId).innerHTML = `
+    <table>
+      <thead><tr><th>${escapeHtml(groupField.replace(/_/g,' '))}</th><th>Headcount</th><th>Min Annual</th><th>Avg Annual</th><th>Max Annual</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(5,'No matching records.')}</tbody>
+    </table>`;
+}
+
+function renderCompExplorerBands(filtered) {
+  const counts = CTC_BANDS.map(() => 0);
+  filtered.forEach(x => {
+    const idx = CTC_BANDS.findIndex(b => x.annual >= b[1] && x.annual < b[2]);
+    if (idx >= 0) counts[idx]++;
+  });
+  destroyChart('chartCompExplorerBands');
+  const canvas = document.getElementById('chartCompExplorerBands');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  chartInstances['chartCompExplorerBands'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: CTC_BANDS.map(b => b[0]), datasets: [{ label: 'Employees', data: counts, backgroundColor: CHART_COLORS.gold }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+function renderCompExplorerTable(filtered) {
+  const wrap = document.getElementById('compExplorerTableWrap');
+  const sorted = [...filtered].sort((a, b) => compExplorerState.sortDesc ? b.annual - a.annual : a.annual - b.annual);
+  const rows = sorted.map(x => `
+    <tr class="row-rail">
+      <td style="color:var(--charcoal-soft);">${escapeHtml(x.e.ID)}</td>
+      <td style="font-weight:600;">${escapeHtml(x.e.Name)}</td>
+      <td>${escapeHtml(x.e.Designation)}</td>
+      <td>${escapeHtml(x.e.Department)}</td>
+      <td>₹${Math.round(x.annual/12).toLocaleString('en-IN')}</td>
+      <td style="font-weight:600;">₹${Math.round(x.annual).toLocaleString('en-IN')}</td>
+    </tr>`).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Designation</th><th>Department</th><th>Monthly CTC</th><th id="compSortHeader" style="cursor:pointer;">Annual CTC ${compExplorerState.sortDesc ? '▼' : '▲'}</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(6,'No matching records.')}</tbody>
+    </table>`;
+  const sortHeader = document.getElementById('compSortHeader');
+  if (sortHeader) sortHeader.addEventListener('click', () => {
+    compExplorerState.sortDesc = !compExplorerState.sortDesc;
+    renderCompExplorerTable(filtered);
+  });
 }
 
 /* ============== ANALYTICS: SUB-TAB NAVIGATION ============== */
