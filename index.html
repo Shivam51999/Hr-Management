@@ -1023,6 +1023,19 @@
 
     <div class="panel">
       <div class="panel-head">
+        <div class="panel-title">Employee Tenure Lookup</div>
+        <div class="view-sub" style="margin:0;">Search by name or ID — see current, previous, and total experience</div>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="tenureSearchInput" placeholder="Search name or ID…">
+      </div>
+      <div class="table-scroll" id="tenureSearchResultsWrap">
+        <div class="loading-state">Start typing a name or employee ID above.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <div class="panel-title">Data Completeness</div>
         <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field. PAN and Aadhaar are checked for presence only — the actual numbers are never shown on this dashboard.</div>
       </div>
@@ -2103,6 +2116,61 @@ function untrackedNote(msg) {
   return `<span style="color:var(--charcoal-soft);font-style:italic;">${msg}</span>`;
 }
 
+/**
+ * Elapsed time in decimal years from a raw sheet date to now (e.g. 4.6).
+ * Returns null if the date is missing or unparseable — callers show "—".
+ */
+function tenureYearsDecimal(rawDate) {
+  const d = parseFlexibleDate(rawDate);
+  if (!d) return null;
+  const now = new Date();
+  return (now - d) / (1000 * 60 * 60 * 24 * 365.25);
+}
+
+function formatYears(y) {
+  return y === null ? '—' : `${y.toFixed(1)} yrs`;
+}
+
+function renderTenureSearchResults(query) {
+  const wrap = document.getElementById('tenureSearchResultsWrap');
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    wrap.innerHTML = `<div class="loading-state">Start typing a name or employee ID above.</div>`;
+    return;
+  }
+  const matches = state.employees.filter(e => `${e.Name} ${e.ID}`.toLowerCase().includes(q));
+  if (!matches.length) {
+    wrap.innerHTML = `<table><tbody>${renderEmptyRow(7, 'No employees match that search.')}</tbody></table>`;
+    return;
+  }
+  const rows = matches.map(e => {
+    // Total = full career (Career_Start_Date -> now).
+    // Current = tenure at Mangalam (Date_Joined_Mangalam -> now).
+    // Previous = whatever career time isn't accounted for by the current
+    // stint here, i.e. experience before joining Mangalam.
+    const totalYrs = tenureYearsDecimal(e.Career_Start_Date);
+    const currentYrs = tenureYearsDecimal(e.Date_Joined_Mangalam);
+    const prevYrs = (totalYrs !== null && currentYrs !== null) ? Math.max(totalYrs - currentYrs, 0) : null;
+    return `
+      <tr class="row-rail">
+        <td style="color:var(--charcoal-soft);">${escapeHtml(e.ID)}</td>
+        <td style="font-weight:600;">${escapeHtml(e.Name)}</td>
+        <td>${escapeHtml(e.Designation)}</td>
+        <td>${escapeHtml(e.Department)}</td>
+        <td>${formatYears(currentYrs)}</td>
+        <td>${formatYears(prevYrs)}</td>
+        <td style="font-weight:600;">${formatYears(totalYrs)}</td>
+      </tr>`;
+  }).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Designation</th><th>Department</th><th>Current Exp (at Mangalam)</th><th>Previous Exp (before Mangalam)</th><th>Total Exp</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+document.getElementById('tenureSearchInput').addEventListener('input', (e) => renderTenureSearchResults(e.target.value));
+
 async function loadDemographics() {
   const noteEl = document.getElementById('demoNote');
   const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoMaritalWrap','demoAgeWrap','demoTenureWrap','demoEducationWrap','demoLocationWrap','demoPayRatioWrap'];
@@ -2241,6 +2309,25 @@ function renderDemoMarital(employees, resolved, total) {
   });
 }
 
+/**
+ * Best-effort keyword classifier for free-text qualification strings into
+ * standard education levels. Order matters: postgraduate/doctorate patterns
+ * are checked before graduate ones so "M.E." doesn't get caught by a loose
+ * "E." style match meant for "B.E.". This is heuristic, not authoritative —
+ * anything that doesn't match a known pattern falls into "Other / Unclassified"
+ * so it's visible for manual review rather than silently mis-bucketed.
+ */
+function classifyEducationCategory(qualText) {
+  const q = String(qualText || '').toLowerCase();
+  if (!q.trim()) return 'Not specified';
+  if (/\b(ph\.?d|doctorate)\b/.test(q)) return 'Doctorate';
+  if (/\b(m\.?\s?tech|m\.?\s?e\.?|mba|m\.?\s?com|m\.?\s?sc|m\.?\s?a\.?|master|pg|post.?grad)\b/.test(q)) return 'Postgraduate';
+  if (/\b(diploma|iti)\b/.test(q)) return 'Diploma';
+  if (/\b(b\.?\s?tech|b\.?\s?e\.?|b\.?\s?com|b\.?\s?sc|b\.?\s?a\.?|bachelor|graduate)\b/.test(q)) return 'Graduate';
+  if (/\b(12th|hsc|ssc|10th|secondary)\b/.test(q)) return 'Schooling';
+  return 'Other / Unclassified';
+}
+
 function renderDemoEducation(employees, resolved, total) {
   const wrap = document.getElementById('demoEducationWrap');
   const col = resolved.qual;
@@ -2248,20 +2335,51 @@ function renderDemoEducation(employees, resolved, total) {
     wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Qualification column found in the Employee Master.')}</div>`;
     return;
   }
-  const counts = {};
+
+  const catCounts = {};
+  employees.forEach(e => {
+    const cat = classifyEducationCategory(e[col]);
+    catCounts[cat] = (catCounts[cat] || 0) + 1;
+  });
+  const catOrder = ['Doctorate','Postgraduate','Graduate','Diploma','Schooling','Other / Unclassified','Not specified'];
+  const catPalette = {
+    Doctorate: CHART_COLORS.navy, Postgraduate: CHART_COLORS.teal, Graduate: CHART_COLORS.gold,
+    Diploma: CHART_COLORS.charcoalSoft, Schooling: CHART_COLORS.red,
+    'Other / Unclassified': '#9c9c9c', 'Not specified': '#c9c6bd'
+  };
+  const catLabels = catOrder.filter(c => catCounts[c]);
+
+  const rawCounts = {};
   employees.forEach(e => {
     const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
-    counts[v] = (counts[v] || 0) + 1;
+    rawCounts[v] = (rawCounts[v] || 0) + 1;
   });
-  const rows = Object.entries(counts).sort((a,b) => b[1]-a[1]).map(([q,c]) => `
+  const rawRows = Object.entries(rawCounts).sort((a,b) => b[1]-a[1]).map(([q,c]) => `
     <tr class="row-rail"><td style="font-weight:600;">${escapeHtml(q)}</td><td>${c}</td><td style="color:var(--charcoal-soft);">${total ? Math.round(c/total*100) : 0}%</td></tr>`).join('');
+
   wrap.innerHTML = `
-    <table>
+    <div class="stat-grid" style="margin-bottom:16px;">
+      ${catLabels.map(l => `
+        <div class="stat-card" style="--rail-color:${catPalette[l] || 'var(--navy)'}">
+          <div class="stat-label">${escapeHtml(l)}</div>
+          <div class="stat-value">${catCounts[l]}<span class="unit"> (${total ? Math.round(catCounts[l]/total*100) : 0}%)</span></div>
+        </div>`).join('')}
+    </div>
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoEducation"></canvas></div>
+    <div style="margin-top:18px;font-family:var(--font-display);font-size:15px;color:var(--charcoal);">Detail — as entered in the sheet</div>
+    <table style="margin-top:8px;">
       <thead><tr><th>Qualification</th><th>Headcount</th><th>Share</th></tr></thead>
-      <tbody>${rows || renderEmptyRow(3,'No qualification data available.')}</tbody>
+      <tbody>${rawRows || renderEmptyRow(3,'No qualification data available.')}</tbody>
     </table>
-    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Grouped by exact text as entered in the sheet — free-text variants (e.g. "B.E." vs "BE Civil") will show as separate rows until standardized.</div>
+    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Category grouping is keyword-based (matches terms like "B.E.", "MBA", "Diploma", "PhD"). Review any "Other / Unclassified" entries and standardize the sheet text for a cleaner split over time.</div>
   `;
+  destroyChart('chartDemoEducation');
+  const ctx = document.getElementById('chartDemoEducation').getContext('2d');
+  chartInstances['chartDemoEducation'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: catLabels, datasets: [{ data: catLabels.map(l => catCounts[l]), backgroundColor: catLabels.map(l => catPalette[l] || CHART_COLORS.navy) }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
+  });
 }
 
 function computeDemoAge(e, resolved) {
