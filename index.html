@@ -2754,7 +2754,13 @@ function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableW
     groups[key].min = Math.min(groups[key].min, x.annual);
     groups[key].max = Math.max(groups[key].max, x.annual);
   });
-  const entries = Object.entries(groups).sort((a, b) => (b[1].sum / b[1].count) - (a[1].sum / a[1].count));
+  // Bars show TOTAL annual cost per group (the actual payroll weight), sorted
+  // highest-cost first. The dashed line is the average of those group totals
+  // — a benchmark so it's visible at a glance which groups sit above/below it,
+  // not an average of individual salaries.
+  const entries = Object.entries(groups).sort((a, b) => b[1].sum - a[1].sum);
+  const totals = entries.map(([,v]) => v.sum);
+  const avgOfTotals = totals.length ? totals.reduce((a,b) => a+b, 0) / totals.length : 0;
 
   destroyChart(canvasId);
   const canvas = document.getElementById(canvasId);
@@ -2764,14 +2770,17 @@ function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableW
       type: 'bar',
       data: {
         labels: entries.map(([k]) => k),
-        datasets: [{ label: 'Avg Annual CTC', data: entries.map(([,v]) => Math.round(v.sum / v.count)), backgroundColor: CHART_COLORS.navy }]
+        datasets: [
+          { type: 'bar', label: 'Total Annual CTC', data: entries.map(([,v]) => Math.round(v.sum)), backgroundColor: CHART_COLORS.navy },
+          { type: 'line', label: 'Average across groups', data: entries.map(() => Math.round(avgOfTotals)), borderColor: CHART_COLORS.red, borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: { y: { ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' } } },
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => '₹' + ctx.raw.toLocaleString('en-IN') } }
+          legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ₹' + ctx.raw.toLocaleString('en-IN') } }
         }
       }
     });
@@ -2784,11 +2793,12 @@ function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableW
       <td>₹${Math.round(v.min).toLocaleString('en-IN')}</td>
       <td>₹${Math.round(v.sum/v.count).toLocaleString('en-IN')}</td>
       <td>₹${Math.round(v.max).toLocaleString('en-IN')}</td>
+      <td style="font-weight:600;">₹${Math.round(v.sum).toLocaleString('en-IN')}</td>
     </tr>`).join('');
   document.getElementById(tableWrapId).innerHTML = `
     <table>
-      <thead><tr><th>${escapeHtml(groupField.replace(/_/g,' '))}</th><th>Headcount</th><th>Min Annual</th><th>Avg Annual</th><th>Max Annual</th></tr></thead>
-      <tbody>${rows || renderEmptyRow(5,'No matching records.')}</tbody>
+      <thead><tr><th>${escapeHtml(groupField.replace(/_/g,' '))}</th><th>Headcount</th><th>Min Annual</th><th>Avg Annual</th><th>Max Annual</th><th>Total Annual</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(6,'No matching records.')}</tbody>
     </table>`;
 }
 
