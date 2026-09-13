@@ -1024,7 +1024,7 @@
     <div class="panel">
       <div class="panel-head">
         <div class="panel-title">Data Completeness</div>
-        <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field</div>
+        <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field. PAN and Aadhaar are checked for presence only — the actual numbers are never shown on this dashboard.</div>
       </div>
       <div class="table-scroll" id="demoCompletenessWrap">
         <div class="loading-state"><div class="spinner"></div>Loading…</div>
@@ -1039,6 +1039,13 @@
     </div>
 
     <div class="panel">
+      <div class="panel-head"><div class="panel-title">Marital Status Mix</div></div>
+      <div class="panel-body padded" id="demoMaritalWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-head"><div class="panel-title">Age Distribution</div></div>
       <div class="panel-body padded" id="demoAgeWrap">
         <div class="loading-state"><div class="spinner"></div>Loading…</div>
@@ -1048,6 +1055,16 @@
     <div class="panel">
       <div class="panel-head"><div class="panel-title">Tenure Distribution</div></div>
       <div class="panel-body padded" id="demoTenureWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Education / Qualification Mix</div>
+        <div class="view-sub" style="margin:0;">Headcount by qualification, as entered in the master</div>
+      </div>
+      <div class="panel-body padded" id="demoEducationWrap">
         <div class="loading-state"><div class="spinner"></div>Loading…</div>
       </div>
     </div>
@@ -2054,6 +2071,8 @@ const DEMO_FIELDS = [
   { key: 'location', label: 'Work Location',       candidates: ['Location','Work_Location','City','Branch','Site'] },
   { key: 'marital',  label: 'Marital Status',      candidates: ['Marital_Status','Marital'] },
   { key: 'blood',    label: 'Blood Group',         candidates: ['Blood_Group','BloodGroup'] },
+  { key: 'pan',      label: 'PAN Number',          candidates: ['PAN','PAN_Number','PAN_No','Pan_No'] },
+  { key: 'aadhaar',  label: 'Aadhaar Number',      candidates: ['Aadhaar','Aadhar','Aadhaar_Number','Aadhar_Number','Aadhaar_No','UID'] },
   { key: 'email',    label: 'Email',                candidates: ['Email'] },
   { key: 'manager',  label: 'Manager',              candidates: ['Manager'] },
   { key: 'qual',     label: 'Qualification',       candidates: ['Qualification'] },
@@ -2086,7 +2105,7 @@ function untrackedNote(msg) {
 
 async function loadDemographics() {
   const noteEl = document.getElementById('demoNote');
-  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoAgeWrap','demoTenureWrap','demoLocationWrap','demoPayRatioWrap'];
+  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoMaritalWrap','demoAgeWrap','demoTenureWrap','demoEducationWrap','demoLocationWrap','demoPayRatioWrap'];
   noteEl.innerHTML = '';
   panelIds.forEach(id => {
     document.getElementById(id).innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading…</div>`;
@@ -2111,8 +2130,10 @@ async function loadDemographics() {
 
     renderDemoCompleteness(employees, resolved, total);
     renderDemoGender(employees, resolved, total);
+    renderDemoMarital(employees, resolved, total);
     renderDemoAge(employees, resolved, total);
     renderDemoTenure(employees, resolved, total);
+    renderDemoEducation(employees, resolved, total);
     renderDemoLocation(employees, resolved, total);
     renderDemoPayRatio(employees, resolved, total);
   } catch (err) {
@@ -2183,6 +2204,64 @@ function renderDemoGender(employees, resolved, total) {
     data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_,i)=>palette[i % palette.length]) }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
   });
+}
+
+function renderDemoMarital(employees, resolved, total) {
+  const wrap = document.getElementById('demoMaritalWrap');
+  const col = resolved.marital;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Marital Status column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const counts = {};
+  employees.forEach(e => {
+    const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
+    counts[v] = (counts[v] || 0) + 1;
+  });
+  const labels = Object.keys(counts);
+  const values = labels.map(l => counts[l]);
+  const palette = [CHART_COLORS.navy, CHART_COLORS.gold, CHART_COLORS.teal, CHART_COLORS.red, CHART_COLORS.charcoalSoft];
+
+  wrap.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:16px;">
+      ${labels.map((l,i) => `
+        <div class="stat-card" style="--rail-color:${palette[i % palette.length]}">
+          <div class="stat-label">${escapeHtml(l)}</div>
+          <div class="stat-value">${counts[l]}<span class="unit"> (${total ? Math.round(counts[l]/total*100) : 0}%)</span></div>
+        </div>`).join('')}
+    </div>
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoMarital"></canvas></div>
+  `;
+  destroyChart('chartDemoMarital');
+  const ctx = document.getElementById('chartDemoMarital').getContext('2d');
+  chartInstances['chartDemoMarital'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_,i)=>palette[i % palette.length]) }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
+  });
+}
+
+function renderDemoEducation(employees, resolved, total) {
+  const wrap = document.getElementById('demoEducationWrap');
+  const col = resolved.qual;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Qualification column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const counts = {};
+  employees.forEach(e => {
+    const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
+    counts[v] = (counts[v] || 0) + 1;
+  });
+  const rows = Object.entries(counts).sort((a,b) => b[1]-a[1]).map(([q,c]) => `
+    <tr class="row-rail"><td style="font-weight:600;">${escapeHtml(q)}</td><td>${c}</td><td style="color:var(--charcoal-soft);">${total ? Math.round(c/total*100) : 0}%</td></tr>`).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Qualification</th><th>Headcount</th><th>Share</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(3,'No qualification data available.')}</tbody>
+    </table>
+    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Grouped by exact text as entered in the sheet — free-text variants (e.g. "B.E." vs "BE Civil") will show as separate rows until standardized.</div>
+  `;
 }
 
 function computeDemoAge(e, resolved) {
