@@ -711,6 +711,7 @@
   <button class="tab-btn" data-view="events">Events &amp; Budget</button>
   <button class="tab-btn" data-view="financials">Financials</button>
   <button class="tab-btn" data-view="attrition">Attrition</button>
+  <button class="tab-btn" data-view="demographics">Demographics</button>
   <!-- Replace the URL below with your deployed 360 Review Tracker Vercel URL -->
   <button class="tab-btn tab-external" data-external-url="https://360-review-tawny.vercel.app/" title="Opens the 360° Review Tracker in a new tab">360° Review<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></button>
 </nav>
@@ -1004,6 +1005,67 @@
       <div class="panel-head"><div class="panel-title">Exit Log</div></div>
       <div class="table-scroll" id="attritionTableWrap">
         <div class="loading-state"><div class="spinner"></div>Loading attrition data…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DEMOGRAPHICS & DIVERSITY ================= -->
+  <section class="view" id="view-demographics">
+    <div class="view-header">
+      <div>
+        <h1 class="view-title">Demographics &amp; Diversity</h1>
+        <div class="view-sub">Data completeness, workforce mix, and pay equity across the master roster</div>
+      </div>
+      <button class="btn" onclick="loadDemographics()">Refresh</button>
+    </div>
+
+    <div id="demoNote"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Data Completeness</div>
+        <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field</div>
+      </div>
+      <div class="table-scroll" id="demoCompletenessWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Gender Mix</div></div>
+      <div class="panel-body padded" id="demoGenderWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Age Distribution</div></div>
+      <div class="panel-body padded" id="demoAgeWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Tenure Distribution</div></div>
+      <div class="panel-body padded" id="demoTenureWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Work Location Mix</div></div>
+      <div class="panel-body padded" id="demoLocationWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Pay Ratio by Gender</div>
+        <div class="view-sub" style="margin:0;">Average CTC comparison — restricted view</div>
+      </div>
+      <div class="panel-body padded" id="demoPayRatioWrap">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
       </div>
     </div>
   </section>
@@ -1521,6 +1583,7 @@ function loadViewData(view) {
     case 'events': loadEvents(); break;
     case 'financials': loadFinancials(); break;
     case 'attrition': loadAttrition(); break;
+    case 'demographics': loadDemographics(); break;
   }
 }
 
@@ -1975,6 +2038,297 @@ async function loadAttrition() {
   } catch (err) {
     wrap.innerHTML = `<div class="error-state">Could not load attrition data. ${escapeHtml(err.message)}</div>`;
   }
+}
+
+/* ============== DEMOGRAPHICS & DIVERSITY ============== */
+
+// Candidate column-name variants the Employee Master might use for each
+// demographic field. detectDemoField() matches case/underscore/space-
+// insensitively, so this works whether the sheet uses "Gender", "Sex",
+// "gender", etc. — no server-side change required as long as the column
+// exists somewhere in the row returned by getEmployees().
+const DEMO_FIELDS = [
+  { key: 'gender',   label: 'Gender',              candidates: ['Gender','Sex'] },
+  { key: 'dob',      label: 'Date of Birth',       candidates: ['Date_Of_Birth','DOB','Birth_Date'] },
+  { key: 'age',      label: 'Age',                 candidates: ['Age'] },
+  { key: 'location', label: 'Work Location',       candidates: ['Location','Work_Location','City','Branch','Site'] },
+  { key: 'marital',  label: 'Marital Status',      candidates: ['Marital_Status','Marital'] },
+  { key: 'blood',    label: 'Blood Group',         candidates: ['Blood_Group','BloodGroup'] },
+  { key: 'email',    label: 'Email',                candidates: ['Email'] },
+  { key: 'manager',  label: 'Manager',              candidates: ['Manager'] },
+  { key: 'qual',     label: 'Qualification',       candidates: ['Qualification'] },
+  { key: 'career',   label: 'Career Start Date',   candidates: ['Career_Start_Date'] },
+  { key: 'joined',   label: 'Date Joined Mangalam',candidates: ['Date_Joined_Mangalam'] },
+  { key: 'ctc',      label: 'CTC (Compensation)',  candidates: ['CTC'] }
+];
+
+function normalizeDemoKey(k) { return String(k).toLowerCase().replace(/[_\s]/g, ''); }
+
+function detectDemoField(employees, candidates) {
+  if (!employees.length) return null;
+  const allKeys = new Set();
+  employees.forEach(e => Object.keys(e).forEach(k => allKeys.add(k)));
+  for (const cand of candidates) {
+    for (const k of allKeys) {
+      if (normalizeDemoKey(k) === normalizeDemoKey(cand)) return k;
+    }
+  }
+  return null;
+}
+
+function isBlankValue(v) {
+  return v === undefined || v === null || String(v).trim() === '';
+}
+
+function untrackedNote(msg) {
+  return `<span style="color:var(--charcoal-soft);font-style:italic;">${msg}</span>`;
+}
+
+async function loadDemographics() {
+  const noteEl = document.getElementById('demoNote');
+  const panelIds = ['demoCompletenessWrap','demoGenderWrap','demoAgeWrap','demoTenureWrap','demoLocationWrap','demoPayRatioWrap'];
+  noteEl.innerHTML = '';
+  panelIds.forEach(id => {
+    document.getElementById(id).innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading…</div>`;
+  });
+
+  try {
+    const employees = await apiGet('getEmployees');
+    state.employees = employees;
+    const total = employees.length;
+
+    // Resolve the actual column name used in the sheet for each expected
+    // field (or null if that field isn't tracked at all).
+    const resolved = {};
+    DEMO_FIELDS.forEach(f => { resolved[f.key] = detectDemoField(employees, f.candidates); });
+
+    const untracked = DEMO_FIELDS.filter(f => !resolved[f.key]).map(f => f.label);
+    if (untracked.length) {
+      noteEl.innerHTML = `<div class="alert-banner" style="background:#FBF3E2;border-color:#F0DCAF;color:#8a6d1f;">
+        <span style="font-size:13px;"><strong>Not tracked in the Employee Master:</strong> ${untracked.map(escapeHtml).join(', ')}. Add these columns to the sheet to unlock the matching section below — no code change needed, the dashboard will pick them up automatically on next refresh.</span>
+      </div>`;
+    }
+
+    renderDemoCompleteness(employees, resolved, total);
+    renderDemoGender(employees, resolved, total);
+    renderDemoAge(employees, resolved, total);
+    renderDemoTenure(employees, resolved, total);
+    renderDemoLocation(employees, resolved, total);
+    renderDemoPayRatio(employees, resolved, total);
+  } catch (err) {
+    panelIds.forEach(id => {
+      document.getElementById(id).innerHTML = `<div class="error-state">Could not load demographics. ${escapeHtml(err.message)}</div>`;
+    });
+  }
+}
+
+function renderDemoCompleteness(employees, resolved, total) {
+  const wrap = document.getElementById('demoCompletenessWrap');
+  const rows = DEMO_FIELDS.map(f => {
+    const col = resolved[f.key];
+    if (!col) {
+      return `<tr class="row-rail"><td style="font-weight:600;">${escapeHtml(f.label)}</td><td colspan="3">${untrackedNote('Not tracked in sheet')}</td></tr>`;
+    }
+    const filled = employees.filter(e => !isBlankValue(e[col])).length;
+    const pct = total ? Math.round((filled / total) * 100) : 0;
+    const barColor = pct >= 90 ? 'var(--teal)' : pct >= 60 ? 'var(--gold)' : 'var(--red)';
+    return `
+      <tr class="row-rail">
+        <td style="font-weight:600;">${escapeHtml(f.label)}</td>
+        <td>${filled} / ${total}</td>
+        <td style="color:var(--charcoal-soft);">${total - filled} missing</td>
+        <td style="min-width:160px;">
+          <span style="font-size:12px;font-weight:600;">${pct}%</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct}%;background:${barColor};"></div></div>
+        </td>
+      </tr>`;
+  }).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Field</th><th>Populated</th><th>Missing</th><th>Completeness</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderDemoGender(employees, resolved, total) {
+  const wrap = document.getElementById('demoGenderWrap');
+  const col = resolved.gender;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Gender / Sex column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const counts = {};
+  employees.forEach(e => {
+    const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
+    counts[v] = (counts[v] || 0) + 1;
+  });
+  const labels = Object.keys(counts);
+  const values = labels.map(l => counts[l]);
+  const palette = [CHART_COLORS.navy, CHART_COLORS.gold, CHART_COLORS.teal, CHART_COLORS.red, CHART_COLORS.charcoalSoft];
+
+  wrap.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:16px;">
+      ${labels.map((l,i) => `
+        <div class="stat-card" style="--rail-color:${palette[i % palette.length]}">
+          <div class="stat-label">${escapeHtml(l)}</div>
+          <div class="stat-value">${counts[l]}<span class="unit"> (${total ? Math.round(counts[l]/total*100) : 0}%)</span></div>
+        </div>`).join('')}
+    </div>
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoGender"></canvas></div>
+  `;
+  destroyChart('chartDemoGender');
+  const ctx = document.getElementById('chartDemoGender').getContext('2d');
+  chartInstances['chartDemoGender'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_,i)=>palette[i % palette.length]) }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
+  });
+}
+
+function computeDemoAge(e, resolved) {
+  if (resolved.age && !isBlankValue(e[resolved.age])) {
+    const n = parseInt(e[resolved.age], 10);
+    return isNaN(n) ? null : n;
+  }
+  if (resolved.dob && !isBlankValue(e[resolved.dob])) {
+    const d = parseFlexibleDate(e[resolved.dob]);
+    if (!d) return null;
+    const now = new Date();
+    let age = now.getFullYear() - d.getFullYear();
+    if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+    return age;
+  }
+  return null;
+}
+
+function renderDemoAge(employees, resolved, total) {
+  const wrap = document.getElementById('demoAgeWrap');
+  if (!resolved.age && !resolved.dob) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Age or Date of Birth column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const bands = [ ['<25',0,24], ['25–34',25,34], ['35–44',35,44], ['45–54',45,54], ['55+',55,200] ];
+  const counts = bands.map(() => 0);
+  let unknown = 0;
+  employees.forEach(e => {
+    const age = computeDemoAge(e, resolved);
+    if (age === null) { unknown++; return; }
+    const idx = bands.findIndex(b => age >= b[1] && age <= b[2]);
+    if (idx >= 0) counts[idx]++;
+  });
+  wrap.innerHTML = `
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoAge"></canvas></div>
+    ${unknown ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-top:8px;">${unknown} employee${unknown>1?'s':''} with no usable age data.</div>` : ''}
+  `;
+  destroyChart('chartDemoAge');
+  const ctx = document.getElementById('chartDemoAge').getContext('2d');
+  chartInstances['chartDemoAge'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: bands.map(b=>b[0]), datasets: [{ label:'Employees', data: counts, backgroundColor: CHART_COLORS.navy }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+  });
+}
+
+function renderDemoTenure(employees, resolved, total) {
+  const wrap = document.getElementById('demoTenureWrap');
+  const col = resolved.joined || resolved.career;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No tenure date column found.')}</div>`;
+    return;
+  }
+  const bands = [ ['<1 yr',0,1], ['1–3 yr',1,3], ['3–5 yr',3,5], ['5–10 yr',5,10], ['10+ yr',10,999] ];
+  const counts = bands.map(() => 0);
+  let unknown = 0;
+  employees.forEach(e => {
+    const d = parseFlexibleDate(e[col]);
+    if (!d) { unknown++; return; }
+    const now = new Date();
+    const yrs = (now - d) / (1000*60*60*24*365.25);
+    const idx = bands.findIndex((b,i) => i === bands.length-1 ? yrs >= b[1] : yrs >= b[1] && yrs < b[2]);
+    if (idx >= 0) counts[idx]++;
+  });
+  wrap.innerHTML = `
+    <div class="chart-wrap chart-wrap-small"><canvas id="chartDemoTenure"></canvas></div>
+    ${unknown ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-top:8px;">${unknown} employee${unknown>1?'s':''} with no usable join date.</div>` : ''}
+  `;
+  destroyChart('chartDemoTenure');
+  const ctx = document.getElementById('chartDemoTenure').getContext('2d');
+  chartInstances['chartDemoTenure'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: bands.map(b=>b[0]), datasets: [{ label:'Employees', data: counts, backgroundColor: CHART_COLORS.teal }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+  });
+}
+
+function renderDemoLocation(employees, resolved, total) {
+  const wrap = document.getElementById('demoLocationWrap');
+  const col = resolved.location;
+  if (!col) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Work Location / City / Branch column found in the Employee Master.')}</div>`;
+    return;
+  }
+  const counts = {};
+  employees.forEach(e => {
+    const v = isBlankValue(e[col]) ? 'Not specified' : String(e[col]).trim();
+    counts[v] = (counts[v] || 0) + 1;
+  });
+  const rows = Object.entries(counts).sort((a,b) => b[1]-a[1]).map(([loc,c]) => `
+    <tr class="row-rail"><td style="font-weight:600;">${escapeHtml(loc)}</td><td>${c}</td><td style="color:var(--charcoal-soft);">${total ? Math.round(c/total*100) : 0}%</td></tr>`).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Location</th><th>Headcount</th><th>Share</th></tr></thead>
+      <tbody>${rows || renderEmptyRow(3,'No location data available.')}</tbody>
+    </table>`;
+}
+
+function renderDemoPayRatio(employees, resolved, total) {
+  const wrap = document.getElementById('demoPayRatioWrap');
+  const genderCol = resolved.gender;
+  const ctcCol = resolved.ctc;
+  if (!ctcCol) {
+    wrap.innerHTML = `<div class="loading-state">${lockedField()} Compensation data is restricted to CEO / COO / VP-HR access, or CTC is not present on this token's response.</div>`;
+    return;
+  }
+  if (!genderCol) {
+    wrap.innerHTML = `<div class="loading-state">${untrackedNote('No Gender column found — cannot compute a gender pay ratio.')}</div>`;
+    return;
+  }
+  const groups = {};
+  employees.forEach(e => {
+    if (isBlankValue(e[genderCol]) || isBlankValue(e[ctcCol])) return;
+    const g = String(e[genderCol]).trim();
+    const ctc = parseFloat(e[ctcCol]);
+    if (isNaN(ctc)) return;
+    if (!groups[g]) groups[g] = { sum:0, count:0 };
+    groups[g].sum += ctc;
+    groups[g].count++;
+  });
+  const entries = Object.entries(groups).map(([g,s]) => [g, s.sum/s.count, s.count]);
+  if (entries.length < 2) {
+    wrap.innerHTML = `<div class="loading-state">Not enough gender-tagged compensation data to compute a ratio yet.</div>`;
+    return;
+  }
+  const maxAvg = Math.max(...entries.map(e => e[1]));
+  const rows = entries.map(([g,avg,count]) => {
+    const ratio = maxAvg ? Math.round((avg/maxAvg)*100) : 0;
+    return `
+      <tr class="row-rail">
+        <td style="font-weight:600;">${escapeHtml(g)}</td>
+        <td>${count}</td>
+        <td>₹${Math.round(avg).toLocaleString('en-IN')}</td>
+        <td>
+          <span style="font-size:12px;font-weight:600;">${ratio}%</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${ratio}%;background:var(--navy);"></div></div>
+        </td>
+      </tr>`;
+  }).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Gender</th><th>Headcount</th><th>Average CTC</th><th>Ratio to highest-paid group</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">Ratio = average CTC of the group ÷ average CTC of the highest-paid group. Directional only — not adjusted for role, level, or tenure mix.</div>
+  `;
 }
 
 /* ============== ANALYTICS: SUB-TAB NAVIGATION ============== */
