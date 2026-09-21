@@ -1036,6 +1036,29 @@
 
     <div class="panel">
       <div class="panel-head">
+        <div class="panel-title">CTC / Payroll Calculator</div>
+        <div class="view-sub" style="margin:0;">Enter an Annual CTC — full salary structure, statutory deductions, and employer cost break down automatically</div>
+      </div>
+      <div class="panel-body padded">
+        <div class="filter-bar" style="margin:-18px -20px 18px; border-radius:0;">
+          <input type="number" id="salaryCalcCTC" placeholder="Annual CTC (₹)" min="0" step="1000" style="min-width:180px;">
+          <select id="salaryCalcGender">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+          <select id="salaryCalcTemplate">
+            <option value="3comp">3-Component — Basic 50% / HRA 30% / Conveyance 20% (ESIC format)</option>
+            <option value="5comp">5-Component — Basic 40% / HRA 20% / Conveyance 10% / Medical 10% / Other 20%</option>
+          </select>
+        </div>
+        <div id="salaryCalcOutput">
+          <div class="loading-state">Enter an Annual CTC above to generate the salary structure.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <div class="panel-title">Data Completeness</div>
         <div class="view-sub" style="margin:0;">Records populated vs. total headcount, per field. PAN, Aadhaar, and CTC figures are checked for presence only — the actual numbers are never shown on this dashboard.</div>
       </div>
@@ -2253,6 +2276,172 @@ function renderTenureSearchResults(query) {
 }
 
 document.getElementById('tenureSearchInput').addEventListener('input', (e) => renderTenureSearchResults(e.target.value));
+
+/* ============== CTC / PAYROLL CALCULATOR ==============
+   Formulas replicated exactly from Mangalam's own CTC workbook (reverse-
+   engineered from the live cell formulas, not guessed from the displayed
+   values). Reconciled to reproduce the exact figures in every sheet of
+   that workbook before being wired up here. */
+
+const PF_WAGE_CEILING = 15000;      // Statutory EPF wage ceiling (Rs/month)
+const ESI_GROSS_THRESHOLD = 21000;  // ESI applicability threshold (Rs/month gross)
+const PF_EMPLOYEE_RATE = 0.12;
+const PF_EMPLOYER_RATE = 0.13;      // matches Mangalam's own template exactly
+const ESI_EMPLOYEE_RATE = 0.0075;
+const ESI_EMPLOYER_RATE = 0.0325;
+
+const SALARY_TEMPLATES = {
+  '3comp': { basic: 0.5, hra: 0.3, conveyance: 0.2, medical: 0, other: 0 },
+  '5comp': { basic: 0.4, hra: 0.2, conveyance: 0.1, medical: 0.1, other: 0.2 }
+};
+
+/**
+ * Maharashtra Profession Tax slab, replicated exactly from Mangalam's own
+ * live CTC sheet formula (MATCH/CHOOSE on Gross Monthly, gender-dependent).
+ */
+function maharashtraProfessionTaxMonthly(grossMonthly, gender) {
+  if (String(gender).toLowerCase() === 'female') {
+    return grossMonthly < 25001 ? 0 : 200;
+  }
+  if (grossMonthly < 7500) return 0;
+  if (grossMonthly < 10000) return 175;
+  return 200;
+}
+
+/**
+ * Full statutory + employer-cost breakdown for a given Gross Monthly.
+ * Retention Ex-gratia = Gross Annual / 24 — confirmed against all four
+ * populated sheets in the source workbook (NOT 1 month's Basic, which only
+ * coincidentally matched in the one sheet using a 50% Basic ratio).
+ */
+function computeCTCFromGross(grossMonthly, template, gender) {
+  const t = SALARY_TEMPLATES[template];
+  const basic = grossMonthly * t.basic;
+  const hra = grossMonthly * t.hra;
+  const conveyance = grossMonthly * t.conveyance;
+  const medical = grossMonthly * t.medical;
+  const other = grossMonthly * t.other;
+
+  const pfEmployee = PF_EMPLOYEE_RATE * Math.min(basic, PF_WAGE_CEILING);
+  const esiEmployee = grossMonthly < ESI_GROSS_THRESHOLD ? ESI_EMPLOYEE_RATE * grossMonthly : 0;
+  const pt = maharashtraProfessionTaxMonthly(grossMonthly, gender);
+  const statutoryDeductions = pfEmployee + esiEmployee + pt;
+  const takeHome = grossMonthly - statutoryDeductions;
+
+  const pfEmployer = PF_EMPLOYER_RATE * Math.min(basic, PF_WAGE_CEILING);
+  const retentionExgratiaMonthly = (grossMonthly * 12 / 24) / 12;
+  const esiEmployer = grossMonthly < ESI_GROSS_THRESHOLD ? ESI_EMPLOYER_RATE * grossMonthly : 0;
+  const benefitsTotal = pfEmployer + retentionExgratiaMonthly + esiEmployer;
+
+  const ctcMonthly = grossMonthly + benefitsTotal;
+
+  return { basic, hra, conveyance, medical, other, grossMonthly, pfEmployee, esiEmployee, pt,
+    statutoryDeductions, takeHome, pfEmployer, retentionExgratiaMonthly, esiEmployer, benefitsTotal, ctcMonthly };
+}
+
+/**
+ * Solves for the Gross Monthly that produces a target Annual CTC via binary
+ * search — robust to the PF-ceiling and ESI-threshold step functions above,
+ * which have no single clean closed-form inverse across both regimes.
+ */
+function solveGrossFromCTC(targetAnnualCTC, template, gender) {
+  const targetMonthlyCTC = targetAnnualCTC / 12;
+  let lo = 0, hi = targetMonthlyCTC * 2 + 100000;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    const result = computeCTCFromGross(mid, template, gender);
+    if (result.ctcMonthly < targetMonthlyCTC) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function runSalaryCalculator() {
+  const ctcInput = document.getElementById('salaryCalcCTC');
+  const genderInput = document.getElementById('salaryCalcGender');
+  const templateInput = document.getElementById('salaryCalcTemplate');
+  const outputEl = document.getElementById('salaryCalcOutput');
+
+  const annualCTC = parseFloat(ctcInput.value);
+  if (!annualCTC || annualCTC <= 0) {
+    outputEl.innerHTML = `<div class="loading-state">Enter an Annual CTC above to generate the salary structure.</div>`;
+    return;
+  }
+
+  const template = templateInput.value;
+  const gender = genderInput.value;
+  const grossMonthly = solveGrossFromCTC(annualCTC, template, gender);
+  const r = computeCTCFromGross(grossMonthly, template, gender);
+  const computedAnnualCTC = r.ctcMonthly * 12;
+  const driftRupees = Math.abs(computedAnnualCTC - annualCTC);
+
+  const fmt = (v) => '₹' + Math.round(v).toLocaleString('en-IN');
+  const row = (label, monthly, annual, bold) => `
+    <tr class="row-rail">
+      <td style="${bold ? 'font-weight:700;' : ''}">${escapeHtml(label)}</td>
+      <td style="${bold ? 'font-weight:700;' : ''}">${fmt(monthly)}</td>
+      <td style="${bold ? 'font-weight:700;' : ''}">${fmt(annual)}</td>
+    </tr>`;
+
+  const t = SALARY_TEMPLATES[template];
+  let rows = '';
+  rows += row('Basic Salary', r.basic, r.basic*12);
+  rows += row('House Rent Allowance', r.hra, r.hra*12);
+  rows += row('Conveyance', r.conveyance, r.conveyance*12);
+  if (t.medical > 0) rows += row('Medical Allowance', r.medical, r.medical*12);
+  if (t.other > 0) rows += row('Other Allowance', r.other, r.other*12);
+  rows += row('Gross Salary', r.grossMonthly, r.grossMonthly*12, true);
+
+  let dedRows = '';
+  dedRows += row('PF — Employee Share', r.pfEmployee, r.pfEmployee*12);
+  dedRows += row('ESI — Employee Share (0.75%)', r.esiEmployee, r.esiEmployee*12);
+  dedRows += row('Profession Tax', r.pt, r.pt*12 + 100);
+  dedRows += row('Statutory Deductions', r.statutoryDeductions, r.statutoryDeductions*12 + 100, true);
+  dedRows += row('Take-Home Salary', r.takeHome, r.takeHome*12 - 100, true);
+
+  let benRows = '';
+  benRows += row('PF (Employer Share)', r.pfEmployer, r.pfEmployer*12);
+  benRows += row('Retention Ex-gratia', r.retentionExgratiaMonthly, r.retentionExgratiaMonthly*12);
+  if (r.esiEmployer > 0) benRows += row('ESI — Employer Share (3.25%)', r.esiEmployer, r.esiEmployer*12);
+  benRows += row('Benefits Total', r.benefitsTotal, r.benefitsTotal*12, true);
+
+  outputEl.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:18px;">
+      <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Annual CTC</div><div class="stat-value" style="font-size:22px;">${fmt(annualCTC)}</div></div>
+      <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Monthly Gross</div><div class="stat-value" style="font-size:22px;">${fmt(r.grossMonthly)}</div></div>
+      <div class="stat-card" style="--rail-color:var(--gold)"><div class="stat-label">Monthly Take-Home</div><div class="stat-value" style="font-size:22px;">${fmt(r.takeHome)}</div></div>
+      <div class="stat-card" style="--rail-color:var(--charcoal-soft)"><div class="stat-label">In-Hand as % of CTC</div><div class="stat-value" style="font-size:22px;">${Math.round(r.takeHome*12/annualCTC*100)}%</div></div>
+    </div>
+
+    <div style="font-family:var(--font-display);font-size:15px;color:var(--charcoal);margin-bottom:8px;">Gross Salary Structure</div>
+    <table style="margin-bottom:18px;">
+      <thead><tr><th>Particulars</th><th>Per Month (₹)</th><th>Annual (₹)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div style="font-family:var(--font-display);font-size:15px;color:var(--charcoal);margin-bottom:8px;">Deductions</div>
+    <table style="margin-bottom:18px;">
+      <thead><tr><th>Particulars</th><th>Per Month (₹)</th><th>Annual (₹)</th></tr></thead>
+      <tbody>${dedRows}</tbody>
+    </table>
+
+    <div style="font-family:var(--font-display);font-size:15px;color:var(--charcoal);margin-bottom:8px;">Additional Employer Benefits</div>
+    <table style="margin-bottom:10px;">
+      <thead><tr><th>Particulars</th><th>Per Month (₹)</th><th>Annual (₹)</th></tr></thead>
+      <tbody>${benRows}</tbody>
+    </table>
+    <table>
+      <tbody>${row('Cost to the Company (CTC)', r.ctcMonthly, r.ctcMonthly*12, true)}</tbody>
+    </table>
+    <div style="font-size:11px;color:var(--charcoal-soft);margin-top:10px;">
+      ${driftRupees > 5 ? `Computed CTC differs from your input by ₹${Math.round(driftRupees)} — a statutory threshold boundary (PF ceiling or ESI eligibility) makes an exact match structurally impossible at this figure; the nearest valid structure is shown. ` : ''}
+      Assumptions: EPF wage ceiling ₹15,000/month · ESI applies below ₹21,000/month gross · Maharashtra Profession Tax slabs (annual figure includes the one-time ₹100 February adjustment) · Retention Ex-gratia = Annual Gross ÷ 24, paid at Diwali, subject to active employment. Structure and statutory rates replicated directly from Mangalam's own CTC template — reverify against current statutory rates before issuing an offer letter, as PF/ESI/PT thresholds do change periodically.
+    </div>
+  ` + insightBox(`Real estate/infrastructure is projected to lead all sectors in 2026 salary growth at 10.9% (Aon Salary Survey 2025-26). If you're structuring a new offer, benchmark the in-hand percentage above against comparable Pune/Mumbai real estate roles before finalizing — candidates increasingly evaluate offers on take-home, not headline CTC, and a low in-hand ratio can lose an otherwise-competitive offer.`);
+}
+
+document.getElementById('salaryCalcCTC').addEventListener('input', runSalaryCalculator);
+document.getElementById('salaryCalcGender').addEventListener('change', runSalaryCalculator);
+document.getElementById('salaryCalcTemplate').addEventListener('change', runSalaryCalculator);
 
 async function loadDemographics() {
   const noteEl = document.getElementById('demoNote');
