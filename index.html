@@ -906,34 +906,68 @@
     </div>
   </section>
 
-  <!-- ================= CRITICAL / COMPLIANCE ================= -->
+  <!-- ================= CRITICAL WATCH HUB ================= -->
   <section class="view" id="view-critical">
     <div class="view-header">
       <div>
         <h1 class="view-title">Compliance &amp; Critical Watch</h1>
-        <div class="view-sub">Recurring statutory, bill, and operational items — flags red at 7+ days overdue</div>
+        <div class="view-sub">Statutory items, vendor contracts, and asset renewals — unified reminders and red flags, 10-day lookahead</div>
       </div>
-      <div id="addCriticalAction"></div>
+      <button class="btn" onclick="loadCriticalWatchHub()">Refresh</button>
     </div>
 
-    <div id="criticalAlert"></div>
+    <div id="cwTopBanner"></div>
 
     <div class="panel">
-      <div class="filter-bar">
-        <select id="filterUrgency">
-          <option value="">All statuses</option>
-          <option value="critical">Critical (7+ days)</option>
-          <option value="warning">Warning (3–6 days)</option>
-          <option value="due">Due now</option>
-          <option value="normal">Not yet due / Closed</option>
-        </select>
-        <select id="filterTag">
-          <option value="">All tags</option>
-        </select>
+      <div class="panel-body padded">
+        <input type="text" id="cwSearchInput" placeholder="Search anything — vendor, item, contact, consumer number…" style="width:100%; font-size:14px; padding:12px 14px; border:1px solid var(--line); border-radius:8px; font-family:var(--font-body); background:var(--paper);">
+        <div id="cwSearchResultsWrap" style="margin-top:14px;"></div>
       </div>
-      <div class="table-scroll" id="criticalTableWrap">
-        <div class="loading-state"><div class="spinner"></div>Loading critical tracker…</div>
+    </div>
+
+    <div class="panel" id="cwCategoryPanel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title" id="cwCategoryTitle">Statutory &amp; Bill Compliance</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <select id="cwCategorySelect" style="font-size:12.5px; padding:8px 12px; border-radius:6px; border:1px solid var(--line); background:#fff;">
+            <option value="statutory">Statutory &amp; Bill Compliance</option>
+            <option value="amc">AMC / Vendor Contracts</option>
+            <option value="internet">Internet / ISP</option>
+            <option value="electricity">Electricity Connections</option>
+            <option value="vehicle">Vehicle Insurance</option>
+            <option value="memberships">Memberships</option>
+            <option value="vendors">Vendor Directory</option>
+            <option value="assets">Company Assets</option>
+          </select>
+          <div id="cwAddAction"></div>
+        </div>
       </div>
+      <div id="cwCategoryInsight" style="padding:0 20px;"></div>
+
+      <!-- Statutory sub-view: reuses the existing tracker exactly as before -->
+      <div id="cwStatutoryView">
+        <div id="criticalAlert" style="padding:0 20px;"></div>
+        <div class="filter-bar">
+          <select id="filterUrgency">
+            <option value="">All statuses</option>
+            <option value="critical">Critical (7+ days)</option>
+            <option value="warning">Warning (3–6 days)</option>
+            <option value="due">Due now</option>
+            <option value="normal">Not yet due / Closed</option>
+          </select>
+          <select id="filterTag">
+            <option value="">All tags</option>
+          </select>
+        </div>
+        <div class="table-scroll" id="criticalTableWrap">
+          <div class="loading-state"><div class="spinner"></div>Loading critical tracker…</div>
+        </div>
+      </div>
+
+      <!-- Generic view for the new vendor/asset/renewal categories -->
+      <div class="table-scroll" id="cwCategoryTableWrap" style="display:none;"></div>
     </div>
   </section>
 
@@ -1223,6 +1257,25 @@
     <div class="modal-foot">
       <button class="btn" data-close="modalEmployee">Cancel</button>
       <button class="btn btn-primary" id="empFormSubmit">Save employee</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD CRITICAL WATCH ITEM (generic, new categories) ================= -->
+<div class="modal-overlay" id="modalCWGeneric">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="cwModalTitle">Add Item</div>
+      <button class="modal-close" data-close="modalCWGeneric" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-error" id="cwFormError"></div>
+      <div class="form-success" id="cwFormSuccess"></div>
+      <form id="cwGenericForm"></form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalCWGeneric">Cancel</button>
+      <button class="btn btn-primary" id="cwFormSubmit">Save item</button>
     </div>
   </div>
 </div>
@@ -1563,7 +1616,6 @@ function renderWriteActionButtons() {
 
   const targets = [
     { id: 'addEmployeeAction', label: 'Add employee', modal: 'modalEmployee' },
-    { id: 'addCriticalAction', label: 'Add item', modal: 'modalCritical' },
     { id: 'addEventAction', label: 'Add event', modal: 'modalEvent' },
     { id: 'addEventBudgetAction', label: 'Add budget', modal: 'modalEventBudget' },
     { id: 'addAttritionAction', label: 'Log exit', modal: 'modalAttrition' }
@@ -1659,7 +1711,7 @@ function loadViewData(view) {
     case 'overview': loadOverview(); break;
     case 'people': loadPeople(); break;
     case 'analytics': loadAnalyticsActiveSubview(); break;
-    case 'critical': loadCritical(); break;
+    case 'critical': loadCriticalWatchHub(); break;
     case 'events': loadEvents(); break;
     case 'financials': loadFinancials(); break;
     case 'attrition': loadAttrition(); break;
@@ -1974,6 +2026,259 @@ function renderCriticalTable(items) {
 ['filterUrgency','filterTag'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => renderCriticalTable(state.critical));
 });
+
+/* ============== CRITICAL WATCH HUB (unified) ==============
+   "statutory" reuses the existing getCriticalTracker/addCriticalItem/
+   updateCriticalItemStatus pipeline untouched. The other categories are
+   new — backed by getCriticalWatchData / addCriticalWatchItem /
+   deleteCriticalWatchItem against the separate Critical_Watch_Seed sheet
+   (deliberately NOT the sheet that also holds credentials). */
+
+const CW_CATEGORIES = {
+  amc:         { label: 'AMC / Vendor Contracts', fields: ['Category','Vendor','Contact_Number','Email','Next_Due_Date','Frequency','Remark'], hasDue: true, dueField: 'Next_Due_Date' },
+  internet:    { label: 'Internet / ISP',          fields: ['Site','Vendor','Contact_Number','Email','Plan_Details','Duration_Text','Last_Renew_Date'], hasDue: false },
+  electricity: { label: 'Electricity Connections', fields: ['Project','Consumer_Name','Consumer_Number','Next_Due_Date'], hasDue: true, dueField: 'Next_Due_Date' },
+  vehicle:     { label: 'Vehicle Insurance',        fields: ['Vehicle','Insurer','Policy_Number','Next_Due_Date','Frequency'], hasDue: true, dueField: 'Next_Due_Date' },
+  memberships: { label: 'Memberships',              fields: ['Name','Next_Due_Date','Frequency'], hasDue: true, dueField: 'Next_Due_Date' },
+  vendors:     { label: 'Vendor Directory',         fields: ['Name','Email','Contact_Number','Particulars'], hasDue: false },
+  assets:      { label: 'Company Assets',           fields: ['Team','Item_Name','Handled_By','Purchase_Date','Site'], hasDue: false }
+};
+
+const CW_INSIGHTS = {
+  statutory: `Your highest legal-risk category — a missed PF/ESIC/statutory filing carries penalties that outlast any vendor relationship. Anything shown Critical here (7+ days overdue) should be resolved before touching any other category on this page.`,
+  amc: `AMC lapses are the classic "silent failure" — nobody notices until the AC stops mid-summer or pest control lapses before an audit. A lapsed AMC often costs more to reinstate (reconnection fees, back-dated coverage) than the renewal itself would have.`,
+  internet: `No due-date column exists for most of these — several are informal monthly arrangements paid via petty cash rather than contracts. Worth formalizing the sites still on "1 month" rolling plans into annual contracts; they're your least price-stable line item.`,
+  electricity: `Track payment due dates here, not meter readings — a missed utility payment risks disconnection, which halts site operations entirely, not just an admin inconvenience. Cross-check this list annually against actual active sites; a live connection for a site no longer in use is a quiet recurring cost.`,
+  vehicle: `Only two policies here, but a lapsed vehicle insurance is a legal driving violation, not just an admin gap — the reminder window matters more than the headcount suggests.`,
+  memberships: `Low volume, but industry memberships (CREDAI etc.) often carry standing and networking value disproportionate to their renewal cost — a lapse here is easy to miss and mildly embarrassing to explain.`,
+  vendors: `This is a directory, not a reminder system — no expiry logic applies. Its value is in the search bar above: type any vendor category (e.g. "uniform", "pest") to find who handles it without digging through old emails.`,
+  assets: `Asset tracking by handler and site, not a depreciation ledger. Worth a periodic physical reconciliation, especially for heavy equipment (JCB, tractor, welding machine) — these are the line items most likely to walk off-site without anyone updating this list.`
+};
+
+let cwData = {};
+let cwStatutoryData = [];
+
+async function loadCriticalWatchHub() {
+  const bannerEl = document.getElementById('cwTopBanner');
+  bannerEl.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading critical watch…</div>`;
+  try {
+    const [newData, statutory] = await Promise.all([
+      apiGet('getCriticalWatchData'),
+      apiGet('getCriticalTracker')
+    ]);
+    cwData = newData;
+    cwStatutoryData = statutory;
+    state.critical = statutory;
+    populateTagFilter(statutory);
+    renderCWBanner();
+    renderCWCategory();
+  } catch (err) {
+    bannerEl.innerHTML = `<div class="error-state">Could not load Critical Watch. ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function daysUntilCW(dateStr) {
+  if (!dateStr) return null;
+  const d = parseFlexibleDate(dateStr);
+  if (!d) return null;
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  d.setHours(0,0,0,0);
+  return Math.round((d - now) / (1000 * 60 * 60 * 24));
+}
+
+function renderCWBanner() {
+  let overdue = 0, dueSoon = 0;
+  Object.entries(CW_CATEGORIES).forEach(([key, cfg]) => {
+    if (!cfg.hasDue) return;
+    (cwData[key] || []).forEach(item => {
+      const days = daysUntilCW(item[cfg.dueField]);
+      if (days === null) return;
+      if (days < 0) overdue++;
+      else if (days <= 10) dueSoon++;
+    });
+  });
+  const statutoryOverdue = cwStatutoryData.filter(i => i.Urgency === 'critical').length;
+  const statutoryDueSoon = cwStatutoryData.filter(i => {
+    const d = daysUntilCW(i.Due_Date);
+    return d !== null && d >= 0 && d <= 10;
+  }).length;
+
+  const totalOverdue = overdue + statutoryOverdue;
+  const totalDueSoon = dueSoon + statutoryDueSoon;
+  const totalTracked = Object.values(cwData).reduce((s, a) => s + a.length, 0) + cwStatutoryData.length;
+
+  document.getElementById('cwTopBanner').innerHTML = `
+    <div style="background:linear-gradient(135deg, var(--navy), var(--navy-dark)); border-radius:10px; padding:20px 24px; margin-bottom:20px; color:#fff;">
+      <div style="font-family:var(--font-display); font-size:19px; margin-bottom:14px;">Critical Watch Summary</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;">
+        <div style="background:rgba(232,49,49,0.2); border-left:4px solid var(--red); border-radius:6px; padding:12px 16px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.9;">Overdue</div>
+          <div style="font-family:var(--font-display); font-size:26px;">${totalOverdue}</div>
+        </div>
+        <div style="background:rgba(184,146,42,0.25); border-left:4px solid var(--gold); border-radius:6px; padding:12px 16px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.9;">Due within 10 days</div>
+          <div style="font-family:var(--font-display); font-size:26px;">${totalDueSoon}</div>
+        </div>
+        <div style="background:rgba(15,110,86,0.25); border-left:4px solid var(--teal); border-radius:6px; padding:12px 16px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.9;">Total Tracked Items</div>
+          <div style="font-family:var(--font-display); font-size:26px;">${totalTracked}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCWSearch(query) {
+  const q = query.trim().toLowerCase();
+  const wrap = document.getElementById('cwSearchResultsWrap');
+  const categoryPanel = document.getElementById('cwCategoryPanel');
+  if (!q) {
+    wrap.innerHTML = '';
+    categoryPanel.style.display = '';
+    return;
+  }
+  categoryPanel.style.display = 'none';
+
+  const matches = [];
+  Object.entries(CW_CATEGORIES).forEach(([key, cfg]) => {
+    (cwData[key] || []).forEach(item => {
+      const haystack = Object.values(item).join(' ').toLowerCase();
+      if (haystack.includes(q)) matches.push({ category: cfg.label, item, fields: cfg.fields });
+    });
+  });
+  cwStatutoryData.forEach(item => {
+    const haystack = Object.values(item).join(' ').toLowerCase();
+    if (haystack.includes(q)) matches.push({ category: 'Statutory & Bill Compliance', item, fields: ['Tag','Item_Name','Owner','Due_Date','Status','Recurrence'] });
+  });
+
+  if (!matches.length) {
+    wrap.innerHTML = `<div class="loading-state">No matches for "${escapeHtml(query)}".</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Category</th><th>Details</th></tr></thead>
+      <tbody>
+        ${matches.map(m => `
+          <tr class="row-rail">
+            <td style="font-weight:600; white-space:nowrap; vertical-align:top;">${escapeHtml(m.category)}</td>
+            <td style="font-size:12.5px; color:var(--charcoal-soft);">${m.fields.map(f => m.item[f] ? `<strong style="color:var(--charcoal);">${escapeHtml(f.replace(/_/g,' '))}:</strong> ${escapeHtml(String(m.item[f]))}` : '').filter(Boolean).join(' &nbsp;·&nbsp; ')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11.5px;color:var(--charcoal-soft);margin-top:10px;">${matches.length} match${matches.length > 1 ? 'es' : ''} across all categories.</div>
+  `;
+}
+
+function renderCWCategory() {
+  const cat = document.getElementById('cwCategorySelect').value;
+  document.getElementById('cwCategoryTitle').textContent = cat === 'statutory' ? 'Statutory & Bill Compliance' : CW_CATEGORIES[cat].label;
+  document.getElementById('cwCategoryInsight').innerHTML = insightBox(CW_INSIGHTS[cat] || '');
+
+  const addActionEl = document.getElementById('cwAddAction');
+  const addIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  if (!state.token) {
+    addActionEl.innerHTML = '';
+  } else if (state.isFullAccess) {
+    addActionEl.innerHTML = cat === 'statutory'
+      ? `<button class="btn-add" data-open="modalCritical">${addIcon}Add item</button>`
+      : `<button class="btn-add" onclick="openCWAddModal('${cat}')">${addIcon}Add item</button>`;
+  } else {
+    addActionEl.innerHTML = lockedNote('Add item');
+  }
+
+  const statutoryView = document.getElementById('cwStatutoryView');
+  const genericWrap = document.getElementById('cwCategoryTableWrap');
+
+  if (cat === 'statutory') {
+    statutoryView.style.display = '';
+    genericWrap.style.display = 'none';
+    renderCriticalTable(cwStatutoryData);
+    return;
+  }
+  statutoryView.style.display = 'none';
+  genericWrap.style.display = '';
+
+  const cfg = CW_CATEGORIES[cat];
+  const items = cwData[cat] || [];
+  const sorted = cfg.hasDue
+    ? [...items].sort((a, b) => (daysUntilCW(a[cfg.dueField]) ?? 99999) - (daysUntilCW(b[cfg.dueField]) ?? 99999))
+    : items;
+
+  const headCols = cfg.fields.map(f => `<th>${escapeHtml(f.replace(/_/g,' '))}</th>`).join('');
+  const rows = sorted.map(item => {
+    let railClass = '';
+    let badge = '';
+    if (cfg.hasDue) {
+      const days = daysUntilCW(item[cfg.dueField]);
+      if (days !== null) {
+        if (days < 0) { railClass = 'rail-critical'; badge = `<span class="badge badge-critical"><span class="dot"></span>${Math.abs(days)}d overdue</span>`; }
+        else if (days <= 10) { railClass = 'rail-warning'; badge = `<span class="badge badge-warning"><span class="dot"></span>Due in ${days}d</span>`; }
+        else { railClass = 'rail-ok'; badge = `<span class="badge badge-ok"><span class="dot"></span>${days}d left</span>`; }
+      }
+    }
+    const cells = cfg.fields.map(f => `<td>${escapeHtml(item[f] ?? '') || '—'}</td>`).join('');
+    const deleteCell = state.isFullAccess
+      ? `<td><button class="btn" style="padding:4px 10px;font-size:11px;" onclick="deleteCWItem('${cat}','${item.ID}')">Delete</button></td>`
+      : '';
+    return `<tr class="row-rail ${railClass}">${cells}${cfg.hasDue ? `<td>${badge}</td>` : ''}${deleteCell}</tr>`;
+  }).join('');
+
+  const colCount = cfg.fields.length + (cfg.hasDue ? 1 : 0) + (state.isFullAccess ? 1 : 0);
+  genericWrap.innerHTML = `
+    <table>
+      <thead><tr>${headCols}${cfg.hasDue ? '<th>Status</th>' : ''}${state.isFullAccess ? '<th></th>' : ''}</tr></thead>
+      <tbody>${rows || renderEmptyRow(colCount, 'No items in this category yet.')}</tbody>
+    </table>`;
+}
+
+let cwCurrentAddCategory = null;
+
+function openCWAddModal(cat) {
+  cwCurrentAddCategory = cat;
+  const cfg = CW_CATEGORIES[cat];
+  document.getElementById('cwModalTitle').textContent = `Add — ${cfg.label}`;
+  document.getElementById('cwGenericForm').innerHTML = cfg.fields.map(f => `
+    <div class="form-row">
+      <label>${escapeHtml(f.replace(/_/g,' '))}</label>
+      <input type="${f.toLowerCase().includes('date') ? 'date' : 'text'}" id="cwField_${f}">
+    </div>`).join('');
+  resetFormMessages('cw');
+  document.getElementById('modalCWGeneric').classList.add('open');
+}
+
+document.getElementById('cwFormSubmit').addEventListener('click', async () => {
+  resetFormMessages('cw');
+  const cfg = CW_CATEGORIES[cwCurrentAddCategory];
+  const payload = {};
+  cfg.fields.forEach(f => { payload[f] = document.getElementById(`cwField_${f}`).value.trim(); });
+  const btn = document.getElementById('cwFormSubmit');
+  setButtonSaving(btn, true);
+  try {
+    const result = await apiPost('addCriticalWatchItem', { category: cwCurrentAddCategory, data: payload });
+    showFormSuccess('cw', `Item saved (ID: ${result.id}).`);
+    await loadCriticalWatchHub();
+    setTimeout(() => closeModal('modalCWGeneric'), 1000);
+  } catch (err) {
+    showFormError('cw', err.message);
+  } finally {
+    setButtonSaving(btn, false, 'Save item');
+  }
+});
+
+async function deleteCWItem(category, id) {
+  if (!confirm('Delete this item? This cannot be undone.')) return;
+  try {
+    await apiPost('deleteCriticalWatchItem', { category, id });
+    await loadCriticalWatchHub();
+  } catch (err) {
+    alert('Could not delete: ' + err.message);
+  }
+}
+
+document.getElementById('cwCategorySelect').addEventListener('change', renderCWCategory);
+document.getElementById('cwSearchInput').addEventListener('input', (e) => renderCWSearch(e.target.value));
 
 /* ============== EVENTS & BUDGET ============== */
 async function loadEvents() {
