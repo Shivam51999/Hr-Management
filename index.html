@@ -2038,10 +2038,10 @@ const CW_CATEGORIES = {
   amc:         { label: 'AMC / Vendor Contracts', fields: ['Category','Vendor','Contact_Number','Email','Next_Due_Date','Frequency','Remark'], hasDue: true, dueField: 'Next_Due_Date' },
   internet:    { label: 'Internet / ISP',          fields: ['Site','Vendor','Contact_Number','Email','Plan_Details','Duration_Text','Last_Renew_Date'], hasDue: false },
   electricity: { label: 'Electricity Connections', fields: ['Project','Consumer_Name','Consumer_Number','Next_Due_Date'], hasDue: true, dueField: 'Next_Due_Date' },
-  vehicle:     { label: 'Vehicle Insurance',        fields: ['Vehicle','Insurer','Policy_Number','Next_Due_Date','Frequency'], hasDue: true, dueField: 'Next_Due_Date' },
-  memberships: { label: 'Memberships',              fields: ['Name','Next_Due_Date','Frequency'], hasDue: true, dueField: 'Next_Due_Date' },
+  vehicle:     { label: 'Vehicle Insurance',        fields: ['Vehicle','Insurer','Policy_Number','Next_Due_Date','Frequency'], hasDue: true, dueField: 'Next_Due_Date', readOnly: true },
+  memberships: { label: 'Memberships',              fields: ['Name','Next_Due_Date','Frequency'], hasDue: true, dueField: 'Next_Due_Date', readOnly: true },
   vendors:     { label: 'Vendor Directory',         fields: ['Name','Email','Contact_Number','Particulars'], hasDue: false },
-  assets:      { label: 'Company Assets',           fields: ['Team','Item_Name','Handled_By','Purchase_Date','Site'], hasDue: false }
+  assets:      { label: 'Company Assets',           fields: ['Team','Item_Name','Handled_By','Purchase_Date','Site'], hasDue: false, readOnly: true }
 };
 
 const CW_INSIGHTS = {
@@ -2180,6 +2180,8 @@ function renderCWCategory() {
   const addIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
   if (!state.token) {
     addActionEl.innerHTML = '';
+  } else if (cat !== 'statutory' && CW_CATEGORIES[cat].readOnly) {
+    addActionEl.innerHTML = `<span class="write-locked-note">This category is read-only — edit the sheet directly</span>`;
   } else if (state.isFullAccess) {
     addActionEl.innerHTML = cat === 'statutory'
       ? `<button class="btn-add" data-open="modalCritical">${addIcon}Add item</button>`
@@ -2219,16 +2221,16 @@ function renderCWCategory() {
       }
     }
     const cells = cfg.fields.map(f => `<td>${escapeHtml(item[f] ?? '') || '—'}</td>`).join('');
-    const deleteCell = state.isFullAccess
+    const deleteCell = (state.isFullAccess && !cfg.readOnly)
       ? `<td><button class="btn" style="padding:4px 10px;font-size:11px;" onclick="deleteCWItem('${cat}','${item.ID}')">Delete</button></td>`
       : '';
     return `<tr class="row-rail ${railClass}">${cells}${cfg.hasDue ? `<td>${badge}</td>` : ''}${deleteCell}</tr>`;
   }).join('');
 
-  const colCount = cfg.fields.length + (cfg.hasDue ? 1 : 0) + (state.isFullAccess ? 1 : 0);
+  const colCount = cfg.fields.length + (cfg.hasDue ? 1 : 0) + ((state.isFullAccess && !cfg.readOnly) ? 1 : 0);
   genericWrap.innerHTML = `
     <table>
-      <thead><tr>${headCols}${cfg.hasDue ? '<th>Status</th>' : ''}${state.isFullAccess ? '<th></th>' : ''}</tr></thead>
+      <thead><tr>${headCols}${cfg.hasDue ? '<th>Status</th>' : ''}${(state.isFullAccess && !cfg.readOnly) ? '<th></th>' : ''}</tr></thead>
       <tbody>${rows || renderEmptyRow(colCount, 'No items in this category yet.')}</tbody>
     </table>`;
 }
