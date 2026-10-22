@@ -4,47 +4,51 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mangalam HR Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
+    --ink:#15161A;
     --navy:#1A3F6F;
     --navy-dark:#122c50;
-    --charcoal:#3A3A3A;
-    --charcoal-soft:#6b6b6b;
-    --red:#E83131;
+    --charcoal:#1E1F24;
+    --charcoal-soft:#6B6D76;
+    --red:#E8343C;
     --gold:#B8922A;
     --teal:#0F6E56;
-    --paper:#F7F6F3;
+    --paper:#F2F3F5;
     --card:#FFFFFF;
-    --line:#E4E1D9;
-    --line-soft:#EDEBE4;
-    --font-display: Georgia, 'Times New Roman', serif;
-    --font-body: Calibri, 'Segoe UI', Arial, sans-serif;
-    --radius:10px;
-    --radius-sm:7px;
-    --shadow-sm:0 1px 2px rgba(26,43,61,0.05), 0 1px 1px rgba(26,43,61,0.04);
-    --shadow-md:0 4px 14px rgba(26,43,61,0.07), 0 1px 3px rgba(26,43,61,0.05);
-    --shadow-lg:0 10px 30px rgba(26,43,61,0.12), 0 2px 8px rgba(26,43,61,0.06);
+    --line:#E5E7EB;
+    --line-soft:#EEEFF2;
+    --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    --radius:14px;
+    --radius-sm:9px;
+    --radius-pill:999px;
+    --shadow-sm:0 1px 2px rgba(20,21,26,0.04), 0 1px 1px rgba(20,21,26,0.03);
+    --shadow-md:0 4px 16px rgba(20,21,26,0.06), 0 1px 3px rgba(20,21,26,0.04);
+    --shadow-lg:0 12px 32px rgba(20,21,26,0.10), 0 2px 8px rgba(20,21,26,0.05);
     --ease:cubic-bezier(.2,.7,.3,1);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:
-      radial-gradient(1100px 500px at 100% -5%, rgba(26,63,111,0.05), transparent 60%),
-      radial-gradient(900px 420px at -5% 0%, rgba(184,146,42,0.05), transparent 55%),
-      var(--paper);
+    background:var(--paper);
     color:var(--charcoal);
     font-family:var(--font-body);
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
   }
   a{color:inherit;text-decoration:none;}
-  ::selection{background:rgba(26,63,111,0.15);}
+  [style*="font-family:var(--font-display)"]{font-weight:700;}
+  ::selection{background:rgba(21,22,26,0.12);}
   ::-webkit-scrollbar{width:10px;height:10px;}
   ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:#D8D4C8;border-radius:20px;border:2px solid var(--paper);}
-  ::-webkit-scrollbar-thumb:hover{background:#C7C2B2;}
+  ::-webkit-scrollbar-thumb{background:#D3D5D9;border-radius:20px;border:2px solid var(--paper);}
+  ::-webkit-scrollbar-thumb:hover{background:#B9BCC2;}
 
   /* ===== HEADER ===== */
   .app-header{
@@ -90,9 +94,10 @@
   }
   .brand-text{
     font-family:var(--font-display);
-    font-size:22px;
-    letter-spacing:0.2px;
-    color:var(--charcoal);
+    font-weight:800;
+    font-size:21px;
+    letter-spacing:-0.3px;
+    color:var(--ink);
     line-height:1;
   }
   .brand-text small{
@@ -113,33 +118,33 @@
     font-size:12px;
     font-weight:600;
     padding:6px 14px;
-    border-radius:20px;
-    background:var(--navy);
+    border-radius:var(--radius-pill);
+    background:var(--ink);
     color:#fff;
     letter-spacing:0.3px;
   }
   .token-input{
     font-size:12px;
-    padding:7px 10px;
+    padding:8px 12px;
     border:1px solid var(--line);
-    border-radius:6px;
+    border-radius:var(--radius-pill);
     width:180px;
     font-family:var(--font-body);
     background:var(--paper);
   }
-  .token-input:focus{outline:2px solid var(--navy); outline-offset:1px;}
+  .token-input:focus{outline:2px solid var(--ink); outline-offset:1px;}
   .btn-connect{
     font-size:12px;
     font-weight:600;
-    padding:8px 16px;
-    border-radius:6px;
-    border:1px solid var(--navy);
-    background:var(--navy);
+    padding:8px 18px;
+    border-radius:var(--radius-pill);
+    border:1px solid var(--ink);
+    background:var(--ink);
     color:#fff;
     cursor:pointer;
   }
-  .btn-connect:hover{background:var(--navy-dark);}
-  .btn-connect:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+  .btn-connect:hover{background:#000;}
+  .btn-connect:focus-visible{outline:2px solid var(--red); outline-offset:2px;}
 
   /* ===== NAV TABS ===== */
   .tab-bar{
@@ -161,15 +166,16 @@
     cursor:pointer;
     border-bottom:3px solid transparent;
     white-space:nowrap;
-    letter-spacing:0.2px;
+    letter-spacing:0;
     transition:color 0.15s var(--ease), background 0.15s var(--ease);
-    border-radius:6px 6px 0 0;
+    border-radius:8px 8px 0 0;
   }
-  .tab-btn:hover{color:var(--charcoal); background:rgba(26,63,111,0.05);}
+  .tab-btn:hover{color:var(--ink); background:rgba(20,21,26,0.045);}
   .tab-btn.active{
-    color:var(--navy);
+    color:var(--ink);
+    font-weight:700;
     border-bottom-color:var(--red);
-    background:rgba(26,63,111,0.06);
+    background:rgba(20,21,26,0.045);
   }
   .tab-btn:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
   .tab-btn.tab-external{
@@ -202,8 +208,10 @@
   }
   .view-title{
     font-family:var(--font-display);
-    font-size:26px;
-    color:var(--charcoal);
+    font-weight:800;
+    letter-spacing:-0.5px;
+    font-size:28px;
+    color:var(--ink);
     margin:0;
   }
   .view-sub{
@@ -233,9 +241,11 @@
   .stat-card::before{
     content:'';
     position:absolute;
-    left:0;top:0;bottom:0;
-    width:4px;
+    left:0;top:14px;bottom:14px;
+    width:3px;
+    border-radius:2px;
     background:var(--rail-color, var(--navy));
+    opacity:0.85;
   }
   .stat-label{
     font-size:11.5px;
@@ -246,11 +256,13 @@
   }
   .stat-value{
     font-family:var(--font-display);
-    font-size:30px;
-    color:var(--charcoal);
+    font-weight:800;
+    letter-spacing:-0.5px;
+    font-size:28px;
+    color:var(--ink);
     margin-top:6px;
   }
-  .stat-value .unit{font-size:15px; color:var(--charcoal-soft); font-family:var(--font-body);}
+  .stat-value .unit{font-size:15px; color:var(--charcoal-soft); font-family:var(--font-body); font-weight:600;}
 
   /* ===== CARD / PANEL ===== */
   .panel{
@@ -264,57 +276,50 @@
   }
   .panel:hover{box-shadow:var(--shadow-md);}
   .panel-head{
-    padding:16px 20px;
+    padding:18px 22px;
     border-bottom:1px solid var(--line-soft);
     display:flex;
     align-items:center;
     justify-content:space-between;
     flex-wrap:wrap;
     gap:10px;
-    background:linear-gradient(180deg, #FDFCFA, #FBFAF8);
+    background:var(--card);
   }
   .panel-title{
     font-family:var(--font-display);
-    font-size:17px;
-    color:var(--charcoal);
+    font-weight:700;
+    letter-spacing:-0.2px;
+    font-size:16.5px;
+    color:var(--ink);
     position:relative;
-    padding-left:12px;
-  }
-  .panel-title::before{
-    content:'';
-    position:absolute;
-    left:0; top:3px; bottom:3px;
-    width:3px;
-    border-radius:2px;
-    background:var(--gold);
   }
   .panel-body{padding:0;}
-  .panel-body.padded{padding:18px 20px;}
+  .panel-body.padded{padding:20px 22px;}
 
   /* ===== FILTER BAR ===== */
   .filter-bar{
     display:flex;
     gap:10px;
     flex-wrap:wrap;
-    padding:14px 20px;
+    padding:14px 22px;
     border-bottom:1px solid var(--line-soft);
-    background:#FBFAF8;
+    background:#FAFAFB;
   }
   .filter-bar select, .filter-bar input{
     font-family:var(--font-body);
     font-size:12.5px;
-    padding:7px 10px;
+    padding:8px 12px;
     border:1px solid var(--line);
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     background:#fff;
-    color:var(--charcoal);
+    color:var(--ink);
     min-width:130px;
   }
   .filter-bar input[type="text"]{min-width:180px;}
-  .filter-bar select:focus,.filter-bar input:focus{outline:2px solid var(--navy); outline-offset:1px;}
+  .filter-bar select:focus,.filter-bar input:focus{outline:2px solid var(--ink); outline-offset:1px;}
   .filter-clear{
     font-size:12px;
-    color:var(--navy);
+    color:var(--ink);
     font-weight:600;
     background:none;
     border:none;
@@ -326,13 +331,14 @@
   table{width:100%; border-collapse:collapse; font-size:13px;}
   thead th{
     text-align:left;
-    font-size:11px;
+    font-size:10.5px;
     text-transform:uppercase;
-    letter-spacing:0.6px;
+    letter-spacing:0.5px;
+    font-weight:700;
     color:var(--charcoal-soft);
-    padding:10px 16px;
+    padding:11px 16px;
     border-bottom:1px solid var(--line);
-    background:#FBFAF8;
+    background:#FAFAFB;
     position:sticky;
     top:0;
   }
@@ -442,44 +448,41 @@
     font-family:var(--font-body);
     font-size:12.5px;
     font-weight:600;
-    padding:8px 14px;
-    border-radius:6px;
+    padding:9px 16px;
+    border-radius:var(--radius-pill);
     border:1px solid var(--line);
     background:#fff;
-    color:var(--charcoal);
+    color:var(--ink);
     cursor:pointer;
-    transition:background 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
+    transition:background 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease), border-color 0.15s var(--ease);
     box-shadow:var(--shadow-sm);
   }
-  .btn:hover{background:#F4F3EF; box-shadow:var(--shadow-md);}
+  .btn:hover{background:#F6F6F7; border-color:#D5D7DB; box-shadow:var(--shadow-md);}
   .btn:active{transform:translateY(1px);}
-  .btn-primary{background:var(--navy); border-color:var(--navy); color:#fff;}
-  .btn-primary:hover{background:var(--navy-dark);}
-  .btn:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
+  .btn-primary{background:var(--ink); border-color:var(--ink); color:#fff;}
+  .btn-primary:hover{background:#000;}
+  .btn:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
 
-  /* ===== SEGMENTED TOGGLE ===== */
+  /* ===== SEGMENTED TOGGLE (pill group, e.g. period / mode switches) ===== */
   .seg-toggle{
     display:inline-flex;
-    background:#EFEDE6;
-    border-radius:8px;
-    padding:3px;
-    gap:2px;
+    gap:6px;
   }
   .seg-btn{
     font-family:var(--font-body);
-    font-size:12px;
+    font-size:12.5px;
     font-weight:600;
-    padding:7px 13px;
-    border:none;
-    border-radius:6px;
-    background:transparent;
-    color:var(--charcoal-soft);
+    padding:8px 15px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-pill);
+    background:#fff;
+    color:var(--ink);
     cursor:pointer;
     white-space:nowrap;
-    transition:background 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+    transition:background 0.15s var(--ease), color 0.15s var(--ease), border-color 0.15s var(--ease);
   }
-  .seg-btn:hover{color:var(--charcoal);}
-  .seg-btn.active{background:#fff; color:var(--navy); box-shadow:var(--shadow-sm);}
+  .seg-btn:hover{border-color:#C9CBD1;}
+  .seg-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
 
   select.status-select{
     font-size:12px;
@@ -540,8 +543,9 @@
   }
   .modal-title{
     font-family:var(--font-display);
+    font-weight:700;
     font-size:18px;
-    color:var(--charcoal);
+    color:var(--ink);
   }
   .modal-close{
     background:none;
@@ -577,11 +581,11 @@
     width:100%;
     font-family:var(--font-body);
     font-size:13.5px;
-    padding:9px 11px;
+    padding:10px 12px;
     border:1px solid var(--line);
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     background:var(--paper);
-    color:var(--charcoal);
+    color:var(--ink);
   }
   .form-row input:focus, .form-row select:focus, .form-row textarea:focus{
     outline:2px solid var(--navy);
@@ -1149,7 +1153,7 @@
             <option value="Female">Female</option>
           </select>
           <select id="salaryCalcTemplate">
-            <option value="5comp" selected>5-Component — Basic 40% / HRA 20% / Conveyance 10% / Medical 10% / Other 20%</option>
+            <option value="5comp" selected>5-Component — Basic 50% / HRA 25% / Conveyance 10% / Medical 10% / Other 5%</option>
             <option value="3comp">3-Component — Basic 50% / HRA 30% / Conveyance 20% (ESIC format)</option>
           </select>
         </div>
@@ -2711,7 +2715,7 @@ const ESI_EMPLOYER_RATE = 0.0325;
 
 const SALARY_TEMPLATES = {
   '3comp': { basic: 0.5, hra: 0.3, conveyance: 0.2, medical: 0, other: 0 },
-  '5comp': { basic: 0.4, hra: 0.2, conveyance: 0.1, medical: 0.1, other: 0.2 }
+  '5comp': { basic: 0.5, hra: 0.25, conveyance: 0.1, medical: 0.1, other: 0.05 } // reconciled exactly against New_CTC2.xlsx (auti sheet): Basic 50% of Gross, HRA 25%, Conveyance 10%, Medical 10%, Other 5%
 };
 
 /**
@@ -2878,7 +2882,7 @@ function runSalaryCalculator() {
       <div class="stat-card" style="--rail-color:var(--gold)"><div class="stat-label">Monthly Take-Home</div><div class="stat-value" style="font-size:22px;">${fmt(r.takeHome)}</div></div>
       <div class="stat-card" style="--rail-color:var(--charcoal-soft)"><div class="stat-label">In-Hand as % of CTC</div><div class="stat-value" style="font-size:22px;">${Math.round(r.takeHome*12/annualCTC*100)}%</div></div>
     </div>
-    ${!basicRuleOk ? `<div class="alert-banner" style="background:#FBF3E2;border-color:#EBD9AC;color:#8f6c1e;margin-bottom:18px;"><span class="dot-pulse" style="background:var(--gold);box-shadow:none;animation:none;"></span><div><strong>Basic is ${basicPctOfCTC.toFixed(0)}% of CTC — below the new 50% floor.</strong> Under the Labour Codes wage rule (effective 21-Nov-2025), Basic + DA must be at least 50% of total remuneration for new/revised contracts. The selected template (${template === '5comp' ? '5-Component, Basic 40%' : '3-Component, Basic 50%'}) ${template === '5comp' ? 'needs restructuring for any new offer letter issued under the new rule' : 'already satisfies this'}.</div></div>` : ''}
+    ${!basicRuleOk ? `<div class="alert-banner" style="background:#FBF3E2;border-color:#EBD9AC;color:#8f6c1e;margin-bottom:18px;"><span class="dot-pulse" style="background:var(--gold);box-shadow:none;animation:none;"></span><div><strong>Basic is ${basicPctOfCTC.toFixed(0)}% of CTC — below the new 50% floor.</strong> Under the Labour Codes wage rule (effective 21-Nov-2025), Basic + DA must be at least 50% of total remuneration for new/revised contracts.</div></div>` : ''}
 
     <div style="font-family:var(--font-display);font-size:15px;color:var(--charcoal);margin-bottom:8px;">Gross Salary Structure</div>
     <table style="margin-bottom:18px;">
@@ -2904,7 +2908,7 @@ function runSalaryCalculator() {
       ${driftRupees > 5 ? `Computed ${salaryCalcMode === 'takehome' ? 'Take-Home' : 'CTC'} differs from your input by ₹${Math.round(driftRupees)} — a statutory threshold boundary (PF ceiling or ESI eligibility) makes an exact match structurally impossible at this figure; the nearest valid structure is shown. ` : ''}
       Assumptions: EPF wage ceiling ₹25,000/month (raised from ₹15,000 effective 17-Sep-2026, Notification S.O. 5109(E)) · ESI applies below ₹21,000/month gross · Maharashtra Profession Tax slabs (annual figure includes the one-time ₹100 February adjustment) · Retention Ex-gratia = Annual Gross ÷ 24, paid at Diwali, subject to active employment. Structure replicated from Mangalam's own CTC template, with the PF ceiling updated to the current statutory figure — reverify against current statutory rates before issuing an offer letter, as PF/ESI/PT thresholds do change periodically.
     </div>
-  ` + insightBox(`Real estate/infrastructure is projected to lead all sectors in 2026 salary growth at 10.9% (Aon Salary Survey 2025-26). If you're structuring a new offer, benchmark the in-hand percentage above against comparable Pune/Mumbai real estate roles before finalizing — candidates increasingly evaluate offers on take-home, not headline CTC, and a low in-hand ratio can lose an otherwise-competitive offer. Separately: the new Labour Codes (effective 21-Nov-2025) also require Basic+DA ≥ 50% of CTC on any new or revised contract — the 5-Component template above runs at 40% Basic, so new offer letters built on it will need restructuring (e.g. shifting weight from "Other Allowance" into Basic) to stay compliant; existing employees' current contracts are not required to be retrofitted, but renewals and new hires should use a compliant split.`);
+  ` + insightBox(`Real estate/infrastructure is projected to lead all sectors in 2026 salary growth at 10.9% (Aon Salary Survey 2025-26). If you're structuring a new offer, benchmark the in-hand percentage above against comparable Pune/Mumbai real estate roles before finalizing — candidates increasingly evaluate offers on take-home, not headline CTC, and a low in-hand ratio can lose an otherwise-competitive offer. Separately: the new Labour Codes (effective 21-Nov-2025) also require Basic+DA ≥ 50% of CTC on any new or revised contract — both templates here already run Basic at 50%, so offer letters built on either stay compliant without any restructuring.`);
 }
 
 document.getElementById('salaryCalcCTC').addEventListener('input', runSalaryCalculator);
@@ -3014,7 +3018,7 @@ function renderDemoGender(employees, resolved, total) {
   chartInstances['chartDemoGender'] = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_,i)=>palette[i % palette.length]) }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Inter', size:12 } } } } }
   });
 }
 
@@ -3049,7 +3053,7 @@ function renderDemoMarital(employees, resolved, total) {
   chartInstances['chartDemoMarital'] = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_,i)=>palette[i % palette.length]) }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Inter', size:12 } } } } }
   });
 }
 
@@ -3127,7 +3131,7 @@ function renderDemoEducation(employees, resolved, total) {
   chartInstances['chartDemoEducation'] = new Chart(ctx, {
     type: 'doughnut',
     data: { labels: catLabels, datasets: [{ data: catLabels.map(l => catCounts[l]), backgroundColor: catLabels.map(l => catPalette[l] || CHART_COLORS.navy) }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Calibri', size:12 } } } } }
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ family:'Inter', size:12 } } } } }
   });
 }
 
@@ -3458,7 +3462,7 @@ function renderCompExplorer(employees, resolved, total) {
     <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">Salary band distribution</div>
     <div class="chart-wrap chart-wrap-small" style="margin-bottom:20px;"><canvas id="chartCompExplorerBands"></canvas></div>
 
-    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">Individual CTC explorer <span style="font-size:11.5px;color:var(--charcoal-soft);font-family:Calibri;">(click "Annual CTC" to sort)</span></div>
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--charcoal); margin-bottom:8px;">Individual CTC explorer <span style="font-size:11.5px;color:var(--charcoal-soft);font-family:Inter;">(click "Annual CTC" to sort)</span></div>
     <div class="table-scroll" id="compExplorerTableWrap"></div>
   ` + insightBox(`Two numbers worth watching together here: real estate/infrastructure is projected to lead India's 2026 salary growth at 10.9% (Aon), so external offers at 10–15% premiums will be common this cycle — while replacing a mid-level employee typically costs 40–200% of their annual salary once hiring, onboarding, and lost-productivity time are counted (India HR industry data). Read the % of Total CTC column against each group's headcount share: a department or grade that's a small slice of headcount but a disproportionate slice of cost is either your highest-leverage function or a retention risk you can't afford to lose quietly.`);
 
@@ -3565,11 +3569,11 @@ function renderCompExplorerGroupBreakdown(filtered, groupField, canvasId, tableW
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: {
-          y: { position: 'left', ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' }, title: { display: true, text: 'Total Annual CTC', font: { family: 'Calibri', size: 11 } } },
-          y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' }, title: { display: true, text: 'Avg per employee', font: { family: 'Calibri', size: 11 } } }
+          y: { position: 'left', ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' }, title: { display: true, text: 'Total Annual CTC', font: { family: 'Inter', size: 11 } } },
+          y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => '₹' + (v/100000).toFixed(1) + 'L' }, title: { display: true, text: 'Avg per employee', font: { family: 'Inter', size: 11 } } }
         },
         plugins: {
-          legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } },
+          legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } },
           tooltip: {
             callbacks: {
               label: ctx => {
@@ -3773,11 +3777,11 @@ function renderSalaryBandChart(canvasId, groupedStats) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { ticks: { font: { family: 'Calibri', size: 11 } } },
+        x: { ticks: { font: { family: 'Inter', size: 11 } } },
         y: { ticks: { callback: v => '₹' + (v / 1000) + 'k' } }
       },
       plugins: {
-        legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } },
+        legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } },
         tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ₹' + ctx.raw.toLocaleString('en-IN') } }
       }
     }
@@ -3839,7 +3843,7 @@ async function loadAttritionRisk() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Calibri', size: 12 } } } }
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 12 } } } }
       }
     });
 
@@ -3910,7 +3914,7 @@ async function loadWorkforcePlanning() {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } } }
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } } }
         }
       });
     } else {
@@ -3986,7 +3990,7 @@ async function loadComplianceHealth() {
           responsive: true,
           maintainAspectRatio: false,
           scales: { x: { stacked: true }, y: { stacked: true } },
-          plugins: { legend: { position: 'top', labels: { font: { family: 'Calibri', size: 11.5 } } } }
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } } }
         }
       });
     }
