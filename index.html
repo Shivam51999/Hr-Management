@@ -21,16 +21,30 @@
     --font-display: Georgia, 'Times New Roman', serif;
     --font-body: Calibri, 'Segoe UI', Arial, sans-serif;
     --radius:10px;
+    --radius-sm:7px;
+    --shadow-sm:0 1px 2px rgba(26,43,61,0.05), 0 1px 1px rgba(26,43,61,0.04);
+    --shadow-md:0 4px 14px rgba(26,43,61,0.07), 0 1px 3px rgba(26,43,61,0.05);
+    --shadow-lg:0 10px 30px rgba(26,43,61,0.12), 0 2px 8px rgba(26,43,61,0.06);
+    --ease:cubic-bezier(.2,.7,.3,1);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:var(--paper);
+    background:
+      radial-gradient(1100px 500px at 100% -5%, rgba(26,63,111,0.05), transparent 60%),
+      radial-gradient(900px 420px at -5% 0%, rgba(184,146,42,0.05), transparent 55%),
+      var(--paper);
     color:var(--charcoal);
     font-family:var(--font-body);
+    line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }
   a{color:inherit;text-decoration:none;}
+  ::selection{background:rgba(26,63,111,0.15);}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#D8D4C8;border-radius:20px;border:2px solid var(--paper);}
+  ::-webkit-scrollbar-thumb:hover{background:#C7C2B2;}
 
   /* ===== HEADER ===== */
   .app-header{
@@ -43,6 +57,7 @@
     position:sticky;
     top:0;
     z-index:50;
+    box-shadow:var(--shadow-sm);
   }
   .brand{
     display:flex;
@@ -147,11 +162,14 @@
     border-bottom:3px solid transparent;
     white-space:nowrap;
     letter-spacing:0.2px;
+    transition:color 0.15s var(--ease), background 0.15s var(--ease);
+    border-radius:6px 6px 0 0;
   }
-  .tab-btn:hover{color:var(--charcoal);}
+  .tab-btn:hover{color:var(--charcoal); background:rgba(26,63,111,0.05);}
   .tab-btn.active{
     color:var(--navy);
     border-bottom-color:var(--red);
+    background:rgba(26,63,111,0.06);
   }
   .tab-btn:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
   .tab-btn.tab-external{
@@ -208,7 +226,10 @@
     padding:18px 20px;
     position:relative;
     overflow:hidden;
+    box-shadow:var(--shadow-sm);
+    transition:box-shadow 0.18s var(--ease), transform 0.18s var(--ease);
   }
+  .stat-card:hover{box-shadow:var(--shadow-md); transform:translateY(-1px);}
   .stat-card::before{
     content:'';
     position:absolute;
@@ -238,7 +259,10 @@
     border-radius:var(--radius);
     margin-bottom:22px;
     overflow:hidden;
+    box-shadow:var(--shadow-sm);
+    transition:box-shadow 0.2s var(--ease);
   }
+  .panel:hover{box-shadow:var(--shadow-md);}
   .panel-head{
     padding:16px 20px;
     border-bottom:1px solid var(--line-soft);
@@ -247,11 +271,22 @@
     justify-content:space-between;
     flex-wrap:wrap;
     gap:10px;
+    background:linear-gradient(180deg, #FDFCFA, #FBFAF8);
   }
   .panel-title{
     font-family:var(--font-display);
     font-size:17px;
     color:var(--charcoal);
+    position:relative;
+    padding-left:12px;
+  }
+  .panel-title::before{
+    content:'';
+    position:absolute;
+    left:0; top:3px; bottom:3px;
+    width:3px;
+    border-radius:2px;
+    background:var(--gold);
   }
   .panel-body{padding:0;}
   .panel-body.padded{padding:18px 20px;}
@@ -307,7 +342,9 @@
     color:var(--charcoal);
     vertical-align:middle;
   }
-  tbody tr:hover{background:#FAFAF7;}
+  tbody tr:nth-child(even){background:rgba(26,63,111,0.015);}
+  tbody tr{transition:background 0.12s var(--ease);}
+  tbody tr:hover{background:#F3F1EA;}
   .table-scroll{max-height:520px; overflow:auto;}
   .empty-row td{
     text-align:center;
@@ -411,11 +448,38 @@
     background:#fff;
     color:var(--charcoal);
     cursor:pointer;
+    transition:background 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
+    box-shadow:var(--shadow-sm);
   }
-  .btn:hover{background:#F4F3EF;}
+  .btn:hover{background:#F4F3EF; box-shadow:var(--shadow-md);}
+  .btn:active{transform:translateY(1px);}
   .btn-primary{background:var(--navy); border-color:var(--navy); color:#fff;}
   .btn-primary:hover{background:var(--navy-dark);}
   .btn:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
+
+  /* ===== SEGMENTED TOGGLE ===== */
+  .seg-toggle{
+    display:inline-flex;
+    background:#EFEDE6;
+    border-radius:8px;
+    padding:3px;
+    gap:2px;
+  }
+  .seg-btn{
+    font-family:var(--font-body);
+    font-size:12px;
+    font-weight:600;
+    padding:7px 13px;
+    border:none;
+    border-radius:6px;
+    background:transparent;
+    color:var(--charcoal-soft);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  .seg-btn:hover{color:var(--charcoal);}
+  .seg-btn.active{background:#fff; color:var(--navy); box-shadow:var(--shadow-sm);}
 
   select.status-select{
     font-size:12px;
@@ -756,7 +820,7 @@
 
     <div class="panel">
       <div class="filter-bar">
-        <input type="text" id="peopleSearch" placeholder="Search name or ID…">
+        <input type="text" id="peopleSearch" placeholder="Search name, ID, designation, department, manager…">
         <select id="filterDept"><option value="">All departments</option></select>
         <select id="filterDesig"><option value="">All designations</option></select>
         <select id="filterFlag">
@@ -1071,11 +1135,15 @@
     <div class="panel">
       <div class="panel-head">
         <div class="panel-title">CTC / Payroll Calculator</div>
-        <div class="view-sub" style="margin:0;">Enter an Annual CTC — full salary structure, statutory deductions, and employer cost break down automatically</div>
+        <div class="view-sub" style="margin:0;">Go either direction — Annual CTC to full structure, or Take-Home to full CTC</div>
       </div>
       <div class="panel-body padded">
         <div class="filter-bar" style="margin:-18px -20px 18px; border-radius:0;">
-          <input type="number" id="salaryCalcCTC" placeholder="Annual CTC (₹)" min="0" step="1000" style="min-width:180px;">
+          <div class="seg-toggle" id="salaryCalcModeToggle">
+            <button type="button" class="seg-btn active" data-mode="ctc">Annual CTC →</button>
+            <button type="button" class="seg-btn" data-mode="takehome">Monthly Take-Home →</button>
+          </div>
+          <input type="number" id="salaryCalcCTC" placeholder="Annual CTC (₹)" min="0" step="1000" style="min-width:190px;">
           <select id="salaryCalcGender">
             <option value="Male">Male</option>
             <option value="Female">Female</option>
@@ -1806,12 +1874,22 @@ async function loadOverview() {
 }
 
 /* ============== PEOPLE EXPLORER ============== */
+// Resolved real column names for People Explorer's own tenure math — set on
+// every load so this works whether or not the Demographics tab has ever been
+// visited (it has its own, separately-detected currentResolvedFields).
+let peopleResolvedFields = {};
+
 async function loadPeople() {
   const wrap = document.getElementById('peopleTableWrap');
   wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading employees…</div>`;
   try {
     const employees = await apiGet('getEmployees');
     state.employees = employees;
+    peopleResolvedFields = {
+      joined: detectDemoField(employees, DEMO_FIELDS.find(f => f.key === 'joined').candidates),
+      prevExp: detectDemoField(employees, DEMO_FIELDS.find(f => f.key === 'prevExp').candidates),
+      career: detectDemoField(employees, DEMO_FIELDS.find(f => f.key === 'career').candidates)
+    };
     populatePeopleFilters(employees);
     renderPeopleTable(employees);
   } catch (err) {
@@ -1874,6 +1952,33 @@ function calcTenureString(rawDate) {
   return `${years}.${months} yr`;
 }
 
+/**
+ * Total Experience = current tenure at Mangalam (from the real
+ * Date_Joined_Mangalam column) + Previous Experience (a plain number-of-
+ * years column in the real sheet) — there is no Career_Start_Date column in
+ * the actual Employee_Master, so that field never had anything to read.
+ * Mirrors the logic in the Demographics tab's Employee Tenure Lookup panel.
+ */
+function computePeopleTotalExp(e) {
+  const joinedCol = peopleResolvedFields.joined || 'Date_Joined_Mangalam';
+  const prevExpCol = peopleResolvedFields.prevExp;
+  const careerCol = peopleResolvedFields.career;
+  const currentYrs = tenureYearsDecimal(e[joinedCol]);
+  let prevYrs = null;
+  if (prevExpCol && !isBlankValue(e[prevExpCol])) {
+    prevYrs = parsePrevExpYears(e[prevExpCol]);
+  }
+  let totalYrs;
+  if (prevYrs === null) {
+    const careerBasedTotal = careerCol ? tenureYearsDecimal(e[careerCol]) : null;
+    totalYrs = careerBasedTotal;
+    if (careerBasedTotal !== null && currentYrs !== null) prevYrs = Math.max(careerBasedTotal - currentYrs, 0);
+  } else {
+    totalYrs = currentYrs !== null ? currentYrs + prevYrs : null;
+  }
+  return { currentYrs, totalYrs, mglSinceStr: calcTenureString(e[joinedCol]) };
+}
+
 function renderPeopleTable(employees) {
   const wrap = document.getElementById('peopleTableWrap');
   const hasComp = employees.some(e => e.CTC !== undefined);
@@ -1891,8 +1996,9 @@ function renderPeopleTable(employees) {
     const compCell = hasComp
       ? (e.CTC ? `₹${escapeHtml(e.CTC)}` : '<span style="color:var(--charcoal-soft);">—</span>')
       : lockedField();
-    const totalExp = calcTenureString(e.Career_Start_Date);
-    const mglSince = calcTenureString(e.Date_Joined_Mangalam);
+    const exp = computePeopleTotalExp(e);
+    const totalExp = formatYears(exp.totalYrs);
+    const mglSince = exp.mglSinceStr;
     return `
       <tr class="row-rail ${flagged ? 'rail-warning' : ''}">
         <td style="color:var(--charcoal-soft);">${escapeHtml(e.ID)}</td>
@@ -1922,7 +2028,11 @@ function getFilteredEmployees() {
   const flagFilter = document.getElementById('filterFlag').value;
 
   return state.employees.filter(e => {
-    if (search && !(`${e.Name} ${e.ID}`.toLowerCase().includes(search))) return false;
+    if (search) {
+      const haystack = [e.Name, e.ID, e.Designation, e.Department, e.Manager, e.Qualification]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
     if (dept && e.Department !== dept) return false;
     if (desig && e.Designation !== desig) return false;
     if (flagFilter === 'flagged' && !(e.Data_Quality_Flag && e.Data_Quality_Flag.trim())) return false;
@@ -2590,7 +2700,9 @@ document.getElementById('tenureSearchInput').addEventListener('input', (e) => re
    values). Reconciled to reproduce the exact figures in every sheet of
    that workbook before being wired up here. */
 
-const PF_WAGE_CEILING = 15000;      // Statutory EPF wage ceiling (Rs/month)
+const PF_WAGE_CEILING = 25000;      // Statutory EPF wage ceiling (Rs/month) — raised from ₹15,000 to ₹25,000 effective 17-Sep-2026 (Notification S.O. 5109(E), under the new Labour Codes)
+const EPF_CEILING_CHANGE_DATE = new Date('2026-09-17');
+const EPF_CEILING_OLD = 15000;
 const ESI_GROSS_THRESHOLD = 21000;  // ESI applicability threshold (Rs/month gross)
 const PF_EMPLOYEE_RATE = 0.12;
 const PF_EMPLOYER_RATE = 0.13;      // matches Mangalam's own template exactly
@@ -2662,24 +2774,65 @@ function solveGrossFromCTC(targetAnnualCTC, template, gender) {
   return (lo + hi) / 2;
 }
 
+/**
+ * Reverse direction: solves for the Gross Monthly that produces a target
+ * monthly Take-Home, via the same binary-search approach (Take-Home is
+ * monotonically non-decreasing in Gross, so this converges cleanly even
+ * across the PF-ceiling / ESI-threshold / PT-slab step functions).
+ */
+function solveGrossFromTakeHome(targetMonthlyTakeHome, template, gender) {
+  let lo = 0, hi = targetMonthlyTakeHome * 3 + 200000;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    const result = computeCTCFromGross(mid, template, gender);
+    if (result.takeHome < targetMonthlyTakeHome) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+let salaryCalcMode = 'ctc';
+
+document.querySelectorAll('#salaryCalcModeToggle .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    salaryCalcMode = btn.dataset.mode;
+    document.querySelectorAll('#salaryCalcModeToggle .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    const input = document.getElementById('salaryCalcCTC');
+    input.placeholder = salaryCalcMode === 'ctc' ? 'Annual CTC (₹)' : 'Monthly Take-Home (₹)';
+    runSalaryCalculator();
+  });
+});
+
 function runSalaryCalculator() {
   const ctcInput = document.getElementById('salaryCalcCTC');
   const genderInput = document.getElementById('salaryCalcGender');
   const templateInput = document.getElementById('salaryCalcTemplate');
   const outputEl = document.getElementById('salaryCalcOutput');
 
-  const annualCTC = parseFloat(ctcInput.value);
-  if (!annualCTC || annualCTC <= 0) {
-    outputEl.innerHTML = `<div class="loading-state">Enter an Annual CTC above to generate the salary structure.</div>`;
+  const inputValue = parseFloat(ctcInput.value);
+  if (!inputValue || inputValue <= 0) {
+    outputEl.innerHTML = `<div class="loading-state">${salaryCalcMode === 'ctc' ? 'Enter an Annual CTC above to generate the salary structure.' : 'Enter a Monthly Take-Home above to back-calculate the full CTC structure.'}</div>`;
     return;
   }
 
   const template = templateInput.value;
   const gender = genderInput.value;
-  const grossMonthly = solveGrossFromCTC(annualCTC, template, gender);
+
+  let grossMonthly, annualCTC, reverseNote = '';
+  if (salaryCalcMode === 'takehome') {
+    grossMonthly = solveGrossFromTakeHome(inputValue, template, gender);
+    const rCheck = computeCTCFromGross(grossMonthly, template, gender);
+    annualCTC = rCheck.ctcMonthly * 12;
+    reverseNote = `Back-calculated from a Monthly Take-Home target of ${('₹' + Math.round(inputValue).toLocaleString('en-IN'))} — the structure below is the Gross/CTC that produces that in-hand figure. `;
+  } else {
+    annualCTC = inputValue;
+    grossMonthly = solveGrossFromCTC(annualCTC, template, gender);
+  }
+
   const r = computeCTCFromGross(grossMonthly, template, gender);
   const computedAnnualCTC = r.ctcMonthly * 12;
-  const driftRupees = Math.abs(computedAnnualCTC - annualCTC);
+  const targetCheck = salaryCalcMode === 'takehome' ? r.takeHome : r.ctcMonthly * 12;
+  const targetVal = salaryCalcMode === 'takehome' ? inputValue : annualCTC;
+  const driftRupees = Math.abs(targetCheck - targetVal);
 
   const fmt = (v) => '₹' + Math.round(v).toLocaleString('en-IN');
   const row = (label, monthly, annual, bold) => `
@@ -2711,13 +2864,21 @@ function runSalaryCalculator() {
   if (r.esiEmployer > 0) benRows += row('ESI — Employer Share (3.25%)', r.esiEmployer, r.esiEmployer*12);
   benRows += row('Benefits Total', r.benefitsTotal, r.benefitsTotal*12, true);
 
+  // New Labour Codes "50% wage rule" (effective 21-Nov-2025): Basic + DA must
+  // be at least 50% of total remuneration/CTC. This template has no separate
+  // DA line, so Basic alone is checked against the 50% floor.
+  const basicPctOfCTC = (r.basic / r.ctcMonthly) * 100;
+  const basicRuleOk = basicPctOfCTC >= 50;
+
   outputEl.innerHTML = `
+    ${reverseNote ? `<div style="font-size:12px;color:var(--charcoal-soft);margin-bottom:14px;font-style:italic;">${reverseNote}</div>` : ''}
     <div class="stat-grid" style="margin-bottom:18px;">
       <div class="stat-card" style="--rail-color:var(--navy)"><div class="stat-label">Annual CTC</div><div class="stat-value" style="font-size:22px;">${fmt(annualCTC)}</div></div>
       <div class="stat-card" style="--rail-color:var(--teal)"><div class="stat-label">Monthly Gross</div><div class="stat-value" style="font-size:22px;">${fmt(r.grossMonthly)}</div></div>
       <div class="stat-card" style="--rail-color:var(--gold)"><div class="stat-label">Monthly Take-Home</div><div class="stat-value" style="font-size:22px;">${fmt(r.takeHome)}</div></div>
       <div class="stat-card" style="--rail-color:var(--charcoal-soft)"><div class="stat-label">In-Hand as % of CTC</div><div class="stat-value" style="font-size:22px;">${Math.round(r.takeHome*12/annualCTC*100)}%</div></div>
     </div>
+    ${!basicRuleOk ? `<div class="alert-banner" style="background:#FBF3E2;border-color:#EBD9AC;color:#8f6c1e;margin-bottom:18px;"><span class="dot-pulse" style="background:var(--gold);box-shadow:none;animation:none;"></span><div><strong>Basic is ${basicPctOfCTC.toFixed(0)}% of CTC — below the new 50% floor.</strong> Under the Labour Codes wage rule (effective 21-Nov-2025), Basic + DA must be at least 50% of total remuneration for new/revised contracts. The selected template (${template === '5comp' ? '5-Component, Basic 40%' : '3-Component, Basic 50%'}) ${template === '5comp' ? 'needs restructuring for any new offer letter issued under the new rule' : 'already satisfies this'}.</div></div>` : ''}
 
     <div style="font-family:var(--font-display);font-size:15px;color:var(--charcoal);margin-bottom:8px;">Gross Salary Structure</div>
     <table style="margin-bottom:18px;">
@@ -2740,10 +2901,10 @@ function runSalaryCalculator() {
       <tbody>${row('Cost to the Company (CTC)', r.ctcMonthly, r.ctcMonthly*12, true)}</tbody>
     </table>
     <div style="font-size:11px;color:var(--charcoal-soft);margin-top:10px;">
-      ${driftRupees > 5 ? `Computed CTC differs from your input by ₹${Math.round(driftRupees)} — a statutory threshold boundary (PF ceiling or ESI eligibility) makes an exact match structurally impossible at this figure; the nearest valid structure is shown. ` : ''}
-      Assumptions: EPF wage ceiling ₹15,000/month · ESI applies below ₹21,000/month gross · Maharashtra Profession Tax slabs (annual figure includes the one-time ₹100 February adjustment) · Retention Ex-gratia = Annual Gross ÷ 24, paid at Diwali, subject to active employment. Structure and statutory rates replicated directly from Mangalam's own CTC template — reverify against current statutory rates before issuing an offer letter, as PF/ESI/PT thresholds do change periodically.
+      ${driftRupees > 5 ? `Computed ${salaryCalcMode === 'takehome' ? 'Take-Home' : 'CTC'} differs from your input by ₹${Math.round(driftRupees)} — a statutory threshold boundary (PF ceiling or ESI eligibility) makes an exact match structurally impossible at this figure; the nearest valid structure is shown. ` : ''}
+      Assumptions: EPF wage ceiling ₹25,000/month (raised from ₹15,000 effective 17-Sep-2026, Notification S.O. 5109(E)) · ESI applies below ₹21,000/month gross · Maharashtra Profession Tax slabs (annual figure includes the one-time ₹100 February adjustment) · Retention Ex-gratia = Annual Gross ÷ 24, paid at Diwali, subject to active employment. Structure replicated from Mangalam's own CTC template, with the PF ceiling updated to the current statutory figure — reverify against current statutory rates before issuing an offer letter, as PF/ESI/PT thresholds do change periodically.
     </div>
-  ` + insightBox(`Real estate/infrastructure is projected to lead all sectors in 2026 salary growth at 10.9% (Aon Salary Survey 2025-26). If you're structuring a new offer, benchmark the in-hand percentage above against comparable Pune/Mumbai real estate roles before finalizing — candidates increasingly evaluate offers on take-home, not headline CTC, and a low in-hand ratio can lose an otherwise-competitive offer.`);
+  ` + insightBox(`Real estate/infrastructure is projected to lead all sectors in 2026 salary growth at 10.9% (Aon Salary Survey 2025-26). If you're structuring a new offer, benchmark the in-hand percentage above against comparable Pune/Mumbai real estate roles before finalizing — candidates increasingly evaluate offers on take-home, not headline CTC, and a low in-hand ratio can lose an otherwise-competitive offer. Separately: the new Labour Codes (effective 21-Nov-2025) also require Basic+DA ≥ 50% of CTC on any new or revised contract — the 5-Component template above runs at 40% Basic, so new offer letters built on it will need restructuring (e.g. shifting weight from "Other Allowance" into Basic) to stay compliant; existing employees' current contracts are not required to be retrofitted, but renewals and new hires should use a compliant split.`);
 }
 
 document.getElementById('salaryCalcCTC').addEventListener('input', runSalaryCalculator);
