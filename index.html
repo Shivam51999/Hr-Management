@@ -3327,16 +3327,24 @@ function renderDemoLocation(employees, resolved, total) {
  * falling back to Monthly CTC x 12 when only that's present. Returns null
  * if neither is available or parseable.
  */
+// Employee_Master stores CTC as Indian comma-formatted text ("11,00,000"),
+// not a raw number. parseFloat() alone stops at the first comma and returns
+// 11 instead of 1100000 — strip commas/currency symbols/whitespace first.
+function parseIndianCurrency(raw) {
+  const v = parseFloat(String(raw).replace(/[,₹\s]/g, ''));
+  return isNaN(v) ? null : v;
+}
+
 function computeAnnualCTC(e, resolved) {
   const annualCol = resolved.ctcAnnual;
   const monthlyCol = resolved.ctcMonthly;
   if (annualCol && !isBlankValue(e[annualCol])) {
-    const v = parseFloat(e[annualCol]);
-    return isNaN(v) ? null : v;
+    const v = parseIndianCurrency(e[annualCol]);
+    return v === null ? null : v;
   }
   if (monthlyCol && !isBlankValue(e[monthlyCol])) {
-    const v = parseFloat(e[monthlyCol]);
-    return isNaN(v) ? null : v * 12;
+    const v = parseIndianCurrency(e[monthlyCol]);
+    return v === null ? null : v * 12;
   }
   return null;
 }
