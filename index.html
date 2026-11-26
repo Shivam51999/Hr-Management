@@ -1050,17 +1050,16 @@
     <div class="view-header">
       <div>
         <h1 class="view-title">Events &amp; Budget</h1>
-        <div class="view-sub">Organization calendar and planned vs. actual spend per event</div>
+        <div class="view-sub">Planned vs. actual spend per event, by department</div>
       </div>
     </div>
 
     <div class="panel">
       <div class="panel-head">
-        <div class="panel-title">Upcoming &amp; Past Events</div>
-        <div id="addEventAction"></div>
+        <div class="panel-title">Budget by Department — Planned vs Actual</div>
       </div>
-      <div class="table-scroll" id="eventsTableWrap">
-        <div class="loading-state"><div class="spinner"></div>Loading events…</div>
+      <div class="panel-body padded">
+        <div class="chart-wrap"><canvas id="chartEventBudgetByDept"></canvas></div>
       </div>
     </div>
 
@@ -1089,11 +1088,17 @@
 
     <div class="panel" id="yearlyPanel" style="display:none;">
       <div class="panel-head"><div class="panel-title">Year-wise Manpower Cost vs Revenue</div></div>
+      <div class="panel-body padded">
+        <div class="chart-wrap"><canvas id="chartYearlyFinancials"></canvas></div>
+      </div>
       <div class="table-scroll" id="yearlyTableWrap"></div>
     </div>
 
     <div class="panel" id="orgBudgetPanel" style="display:none;">
       <div class="panel-head"><div class="panel-title">Department CTC — Budgeted vs Actual</div></div>
+      <div class="panel-body padded">
+        <div class="chart-wrap"><canvas id="chartOrgBudgetByDept"></canvas></div>
+      </div>
       <div class="table-scroll" id="orgBudgetWrap"></div>
       <div class="panel-body padded" id="financialsInsight"></div>
     </div>
@@ -1110,6 +1115,16 @@
     </div>
 
     <div class="stat-grid" id="attritionStats"></div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Exits by Department</div></div>
+      <div class="panel-body padded"><div class="chart-wrap"><canvas id="chartAttritionByDept"></canvas></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Exits by Reason</div></div>
+      <div class="panel-body padded"><div class="chart-wrap"><canvas id="chartAttritionByReason"></canvas></div></div>
+    </div>
 
     <div class="panel">
       <div class="panel-head"><div class="panel-title">Exit Log</div></div>
@@ -1429,46 +1444,6 @@
 </div>
 
 <!-- ================= MODAL: ADD EVENT ================= -->
-<div class="modal-overlay" id="modalEvent">
-  <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title">Add Event</div>
-      <button class="modal-close" data-close="modalEvent" aria-label="Close">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-error" id="evtFormError"></div>
-      <div class="form-success" id="evtFormSuccess"></div>
-      <form id="evtForm">
-        <div class="form-row">
-          <label>Event name <span class="required">*</span></label>
-          <input type="text" id="evtName" required>
-        </div>
-        <div class="form-grid-2">
-          <div class="form-row">
-            <label>Event date <span class="required">*</span></label>
-            <input type="date" id="evtDate" required>
-          </div>
-          <div class="form-row">
-            <label>Department</label>
-            <input type="text" id="evtDepartment">
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Owner</label>
-          <input type="text" id="evtOwner">
-        </div>
-        <div class="form-row">
-          <label>Notes</label>
-          <textarea id="evtNotes" rows="2"></textarea>
-        </div>
-      </form>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" data-close="modalEvent">Cancel</button>
-      <button class="btn btn-primary" id="evtFormSubmit">Save event</button>
-    </div>
-  </div>
-</div>
 
 <!-- ================= MODAL: ADD EVENT BUDGET ================= -->
 <div class="modal-overlay" id="modalEventBudget">
@@ -1697,7 +1672,6 @@ function renderWriteActionButtons() {
 
   const targets = [
     { id: 'addEmployeeAction', label: 'Add employee', modal: 'modalEmployee' },
-    { id: 'addEventAction', label: 'Add event', modal: 'modalEvent' },
     { id: 'addEventBudgetAction', label: 'Add budget', modal: 'modalEventBudget' },
     { id: 'addAttritionAction', label: 'Log exit', modal: 'modalAttrition' }
   ];
@@ -1817,6 +1791,22 @@ function lockedField() {
 
 function renderEmptyRow(colspan, message) {
   return `<tr class="empty-row"><td colspan="${colspan}">${message}</td></tr>`;
+}
+
+// Sheets/Apps Script often hand back dates as raw ISO timestamps
+// ("2026-04-05T18:30:00.000Z") because of timezone-shifted Date objects.
+// formatDate() renders these (and plain date strings) as "5 Apr 2026" for
+// display, without touching the underlying value used in any computation.
+function formatDate(raw) {
+  if (isBlankValue(raw)) return '—';
+  const s = String(raw).trim();
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return escapeHtml(s);
+  // Sheets timestamps are frequently stored at local-midnight-shifted-to-UTC
+  // (e.g. 18:30:00.000Z for IST midnight); read the UTC calendar date so the
+  // displayed day doesn't shift by one depending on the viewer's timezone.
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 /* ============== OVERVIEW ============== */
@@ -2437,69 +2427,86 @@ document.getElementById('cwSearchInput').addEventListener('input', (e) => render
 
 /* ============== EVENTS & BUDGET ============== */
 async function loadEvents() {
-  const evWrap = document.getElementById('eventsTableWrap');
   const budWrap = document.getElementById('eventBudgetWrap');
-  evWrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading events…</div>`;
   budWrap.innerHTML = `<div class="loading-state"><div class="spinner"></div>Loading budget data…</div>`;
   try {
-    const [events, budgets] = await Promise.all([
-      apiGet('getEventCalendar'),
-      apiGet('getEventBudget')
-    ]);
-
-    const evRows = events.map(e => `
-      <tr class="row-rail">
-        <td style="font-weight:600;">${escapeHtml(e.Event_Name)}</td>
-        <td>${escapeHtml(e.Event_Date)}</td>
-        <td>${escapeHtml(e.Department)}</td>
-        <td>${escapeHtml(e.Owner)}</td>
-        <td style="color:var(--charcoal-soft);font-size:12.5px;">${escapeHtml(e.Notes) || '—'}</td>
-      </tr>`).join('');
-
-    evWrap.innerHTML = `
-      <table>
-        <thead><tr><th>Event</th><th>Date</th><th>Department</th><th>Owner</th><th>Notes</th></tr></thead>
-        <tbody>${evRows || renderEmptyRow(5, 'No events scheduled yet.')}</tbody>
-      </table>`;
+    const budgets = await apiGet('getEventBudget');
 
     if (budgets && budgets.error) {
       budWrap.innerHTML = `<div class="loading-state">${lockedField()} Budget figures are restricted to CEO / COO / VP-HR access.</div>`;
-    } else {
-      const budRows = budgets.map(b => {
-        const varClass = b.Variance > 0 ? 'badge-critical' : b.Variance < 0 ? 'badge-ok' : 'badge-neutral';
-        return `
-          <tr class="row-rail">
-            <td style="font-weight:600;">${escapeHtml(b.Event_Name)}</td>
-            <td>${escapeHtml(b.Department)}</td>
-            <td>₹${escapeHtml(b.Budget_Planned)}</td>
-            <td>₹${escapeHtml(b.Budget_Actual)}</td>
-            <td><span class="badge ${varClass}"><span class="dot"></span>${b.Variance_Percent > 0 ? '+' : ''}${b.Variance_Percent}%</span></td>
-          </tr>`;
-      }).join('');
-      budWrap.innerHTML = `
-        <table>
-          <thead><tr><th>Event</th><th>Department</th><th>Planned</th><th>Actual</th><th>Variance</th></tr></thead>
-          <tbody>${budRows || renderEmptyRow(5, 'No event budgets recorded yet.')}</tbody>
-        </table>`;
+      return;
+    }
 
-      const parseNum = v => { const n = parseFloat(String(v).replace(/[,₹\s]/g, '')); return isNaN(n) ? 0 : n; };
-      const overBudget = budgets.filter(b => Number(b.Variance) > 0);
-      const totalPlanned = budgets.reduce((s, b) => s + parseNum(b.Budget_Planned), 0);
-      const totalActual = budgets.reduce((s, b) => s + parseNum(b.Budget_Actual), 0);
-      const totalOverspend = budgets.reduce((s, b) => s + Math.max(0, parseNum(b.Budget_Actual) - parseNum(b.Budget_Planned)), 0);
-      const overallVarPct = totalPlanned > 0 ? (((totalActual - totalPlanned) / totalPlanned) * 100).toFixed(1) : null;
-      const worstEvent = overBudget.length ? overBudget.reduce((a, b) => (Number(b.Variance_Percent) > Number(a.Variance_Percent) ? b : a)) : null;
-      const insightEl = document.getElementById('eventsInsight');
-      if (insightEl) {
-        insightEl.innerHTML = insightBox(
-          `${budgets.length} tracked event${budgets.length === 1 ? '' : 's'} ${overallVarPct !== null ? `are running at ${overallVarPct > 0 ? '+' : ''}${overallVarPct}% against planned spend overall` : 'have budget data recorded'}. ${overBudget.length > 0 ? `${overBudget.length} of ${budgets.length} event${budgets.length === 1 ? '' : 's'} ${overBudget.length === 1 ? 'is' : 'are'} over budget, with a combined overspend of ₹${totalOverspend.toLocaleString('en-IN')}${worstEvent ? ` — ${escapeHtml(worstEvent.Event_Name)} (${escapeHtml(worstEvent.Department)}) is the biggest outlier at +${worstEvent.Variance_Percent}% over plan` : ''}. Repeated overspend on the same department's events is usually a planning-estimate problem, not a one-off — worth tightening next cycle's budget baseline for that department rather than just flagging the variance after the fact.` : 'No event is currently running over its planned budget — spend discipline looks solid across the calendar.'}`,
-          'blue'
-        );
-      }
+    const budRows = budgets.map(b => {
+      const varClass = b.Variance > 0 ? 'badge-critical' : b.Variance < 0 ? 'badge-ok' : 'badge-neutral';
+      return `
+        <tr class="row-rail">
+          <td style="font-weight:600;">${escapeHtml(b.Event_Name)}</td>
+          <td>${escapeHtml(b.Department)}</td>
+          <td>₹${escapeHtml(b.Budget_Planned)}</td>
+          <td>₹${escapeHtml(b.Budget_Actual)}</td>
+          <td><span class="badge ${varClass}"><span class="dot"></span>${b.Variance_Percent > 0 ? '+' : ''}${b.Variance_Percent}%</span></td>
+        </tr>`;
+    }).join('');
+    budWrap.innerHTML = `
+      <table>
+        <thead><tr><th>Event</th><th>Department</th><th>Planned</th><th>Actual</th><th>Variance</th></tr></thead>
+        <tbody>${budRows || renderEmptyRow(5, 'No event budgets recorded yet.')}</tbody>
+      </table>`;
+
+    const parseNum = v => { const n = parseFloat(String(v).replace(/[,₹\s]/g, '')); return isNaN(n) ? 0 : n; };
+
+    // Roll every event up by department so the insight speaks to the full
+    // spread of departments, not just the single worst outlier.
+    const byDept = {};
+    budgets.forEach(b => {
+      const d = b.Department || 'Unassigned';
+      if (!byDept[d]) byDept[d] = { planned: 0, actual: 0, count: 0 };
+      byDept[d].planned += parseNum(b.Budget_Planned);
+      byDept[d].actual += parseNum(b.Budget_Actual);
+      byDept[d].count += 1;
+    });
+    const deptNames = Object.keys(byDept);
+
+    if (deptNames.length > 0) {
+      destroyChart('chartEventBudgetByDept');
+      const ctx = document.getElementById('chartEventBudgetByDept').getContext('2d');
+      chartInstances['chartEventBudgetByDept'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: deptNames,
+          datasets: [
+            { label: 'Planned', data: deptNames.map(d => byDept[d].planned), backgroundColor: CHART_COLORS.navy },
+            { label: 'Actual', data: deptNames.map(d => byDept[d].actual), backgroundColor: CHART_COLORS.gold }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    const overBudget = budgets.filter(b => Number(b.Variance) > 0);
+    const totalPlanned = budgets.reduce((s, b) => s + parseNum(b.Budget_Planned), 0);
+    const totalActual = budgets.reduce((s, b) => s + parseNum(b.Budget_Actual), 0);
+    const totalOverspend = budgets.reduce((s, b) => s + Math.max(0, parseNum(b.Budget_Actual) - parseNum(b.Budget_Planned)), 0);
+    const overallVarPct = totalPlanned > 0 ? (((totalActual - totalPlanned) / totalPlanned) * 100).toFixed(1) : null;
+    const deptBreakdown = deptNames
+      .map(d => ({ d, over: byDept[d].actual - byDept[d].planned }))
+      .filter(x => x.over > 0)
+      .sort((a, b) => b.over - a.over);
+    const insightEl = document.getElementById('eventsInsight');
+    if (insightEl) {
+      insightEl.innerHTML = insightBox(
+        `${budgets.length} tracked event${budgets.length === 1 ? '' : 's'} across ${deptNames.length} department${deptNames.length === 1 ? '' : 's'} ${overallVarPct !== null ? `are running at ${overallVarPct > 0 ? '+' : ''}${overallVarPct}% against planned spend overall` : 'have budget data recorded'}. ${overBudget.length > 0 ? `${overBudget.length} of ${budgets.length} event${budgets.length === 1 ? '' : 's'} ${overBudget.length === 1 ? 'is' : 'are'} over budget, for a combined overspend of ₹${totalOverspend.toLocaleString('en-IN')}.` : 'No single event is currently running over its planned budget.'} ${deptBreakdown.length > 0 ? `By department, the overspend breaks down as: ${deptBreakdown.map(x => `${escapeHtml(x.d)} (₹${Math.round(x.over).toLocaleString('en-IN')})`).join(', ')}. Repeated overspend concentrated in the same department is usually a planning-estimate problem, not a one-off — worth tightening that department's budget baseline for next cycle rather than just flagging each event's variance after the fact.` : 'Spend discipline looks solid across every department right now.'}`,
+        'blue'
+      );
     }
   } catch (err) {
-    evWrap.innerHTML = `<div class="error-state">Could not load events. ${escapeHtml(err.message)}</div>`;
-    budWrap.innerHTML = '';
+    budWrap.innerHTML = `<div class="error-state">Could not load events. ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -2534,6 +2541,31 @@ async function loadFinancials() {
         <tbody>${yRows || renderEmptyRow(5, 'No financial data entered yet.')}</tbody>
       </table>`;
 
+    const parseFinNum = v => { const n = parseFloat(String(v).replace(/[,₹\s]/g, '')); return isNaN(n) ? null : n; };
+    if (yearly.length > 0) {
+      destroyChart('chartYearlyFinancials');
+      const ctxY = document.getElementById('chartYearlyFinancials').getContext('2d');
+      chartInstances['chartYearlyFinancials'] = new Chart(ctxY, {
+        data: {
+          labels: yearly.map(y => y.FY),
+          datasets: [
+            { type: 'bar', label: 'Manpower Cost', data: yearly.map(y => parseFinNum(y.Manpower_Cost)), backgroundColor: CHART_COLORS.navy, order: 2 },
+            { type: 'bar', label: 'Revenue', data: yearly.map(y => parseFinNum(y.Revenue)), backgroundColor: CHART_COLORS.gold, order: 2 },
+            { type: 'line', label: 'Cost % of Revenue', data: yearly.map(y => y.Manpower_Cost_Percent_Of_Revenue !== '' && y.Manpower_Cost_Percent_Of_Revenue != null ? parseFloat(y.Manpower_Cost_Percent_Of_Revenue) : null), borderColor: CHART_COLORS.red, backgroundColor: CHART_COLORS.red, yAxisID: 'y1', tension: 0.3, order: 1 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: '₹' } },
+            y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: '% of Revenue' } }
+          }
+        }
+      });
+    }
+
     const orgBudget = await apiGet('getOrgBudget');
     orgPanel.style.display = '';
     const oRows = (orgBudget.error ? [] : orgBudget).map(o => `
@@ -2552,6 +2584,27 @@ async function loadFinancials() {
       </table>`;
 
     const parseNum = v => { const n = parseFloat(String(v).replace(/[,₹\s]/g, '')); return isNaN(n) ? null : n; };
+    const orgChartRows = (orgBudget && !orgBudget.error) ? orgBudget : [];
+    if (orgChartRows.length > 0) {
+      destroyChart('chartOrgBudgetByDept');
+      const ctxO = document.getElementById('chartOrgBudgetByDept').getContext('2d');
+      chartInstances['chartOrgBudgetByDept'] = new Chart(ctxO, {
+        type: 'bar',
+        data: {
+          labels: orgChartRows.map(o => o.Department),
+          datasets: [
+            { label: 'CTC Budgeted', data: orgChartRows.map(o => parseNum(o.CTC_Budgeted) || 0), backgroundColor: CHART_COLORS.navy },
+            { label: 'CTC Actual', data: orgChartRows.map(o => parseNum(o.CTC_Actual) || 0), backgroundColor: CHART_COLORS.gold }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11.5 } } } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
     const validYears = yearly.filter(y => y.Manpower_Cost_Percent_Of_Revenue !== null && y.Manpower_Cost_Percent_Of_Revenue !== undefined && y.Manpower_Cost_Percent_Of_Revenue !== '');
     let trendPhrase = 'not enough year-on-year data yet to establish a trend';
     if (validYears.length >= 2) {
@@ -2561,11 +2614,15 @@ async function loadFinancials() {
       trendPhrase = `manpower cost as a share of revenue has ${last > first ? `risen by ${Math.abs(delta)} percentage points` : last < first ? `fallen by ${Math.abs(delta)} percentage points` : 'held essentially flat'} from ${escapeHtml(validYears[0].FY)} (${first}%) to ${escapeHtml(validYears[validYears.length - 1].FY)} (${last}%)`;
     }
     const orgRows = (orgBudget && !orgBudget.error) ? orgBudget : [];
-    const overBudgetDepts = orgRows.filter(o => { const b = parseNum(o.CTC_Budgeted), a = parseNum(o.CTC_Actual); return b !== null && a !== null && a > b; });
+    const deptVariance = orgRows
+      .map(o => { const b = parseNum(o.CTC_Budgeted), a = parseNum(o.CTC_Actual); return { dept: o.Department, over: (b !== null && a !== null) ? a - b : null }; })
+      .filter(x => x.over !== null);
+    const overBudgetDepts = deptVariance.filter(x => x.over > 0).sort((a, b) => b.over - a.over);
+    const underBudgetDepts = deptVariance.filter(x => x.over < 0).sort((a, b) => a.over - b.over);
     const finInsightEl = document.getElementById('financialsInsight');
     if (finInsightEl) {
       finInsightEl.innerHTML = insightBox(
-        `Across ${yearly.length} tracked fiscal year${yearly.length === 1 ? '' : 's'}, ${trendPhrase}. ${validYears.length ? (parseFloat(validYears[validYears.length-1].Manpower_Cost_Percent_Of_Revenue) > 35 ? 'A manpower cost ratio above roughly 35% of revenue is on the high side for a real-estate developer\'s overhead structure and is worth benchmarking against comparable Pune-market developers.' : 'The current ratio is within a reasonable range for a real-estate development business, where manpower is typically a smaller share of cost than land and construction.') : ''} ${overBudgetDepts.length > 0 ? `${overBudgetDepts.length} department${overBudgetDepts.length === 1 ? ' is' : 's are'} running over its CTC budget for the year — worth reviewing whether this reflects planned hiring that outpaced the budget cycle, or unbudgeted hikes/backfills.` : 'Department-wise CTC spend is tracking within budget across the board.'}`,
+        `Across ${yearly.length} tracked fiscal year${yearly.length === 1 ? '' : 's'}, ${trendPhrase}. ${validYears.length ? (parseFloat(validYears[validYears.length-1].Manpower_Cost_Percent_Of_Revenue) > 35 ? 'A manpower cost ratio above roughly 35% of revenue is on the high side for a real-estate developer\'s overhead structure and is worth benchmarking against comparable Pune-market developers.' : 'The current ratio is within a reasonable range for a real-estate development business, where manpower is typically a smaller share of cost than land and construction.') : ''} ${overBudgetDepts.length > 0 ? `${overBudgetDepts.length} of ${deptVariance.length} department${deptVariance.length === 1 ? '' : 's'} ${overBudgetDepts.length === 1 ? 'is' : 'are'} running over its CTC budget: ${overBudgetDepts.map(x => `${escapeHtml(x.dept)} (+₹${Math.round(x.over).toLocaleString('en-IN')})`).join(', ')} — worth reviewing whether this reflects planned hiring that outpaced the budget cycle, or unbudgeted hikes/backfills.` : 'Department-wise CTC spend is tracking within budget across the board.'} ${underBudgetDepts.length > 0 ? `On the other side, ${underBudgetDepts.map(x => `${escapeHtml(x.dept)} (−₹${Math.round(Math.abs(x.over)).toLocaleString('en-IN')})`).join(', ')} ${underBudgetDepts.length === 1 ? 'is' : 'are'} running under budget — worth checking whether that reflects open, unfilled headcount rather than efficiency.` : ''}`,
         'gold'
       );
     }
@@ -2598,7 +2655,7 @@ async function loadAttrition() {
         <td style="font-weight:600;">${escapeHtml(r.Employee_Name)}</td>
         <td>${escapeHtml(r.Department)}</td>
         <td>${escapeHtml(r.Designation)}</td>
-        <td>${escapeHtml(r.Date_Exited)}</td>
+        <td>${formatDate(r.Date_Exited)}</td>
         <td>${escapeHtml(r.Exit_Type)}</td>
         <td>${r.Regrettable === 'Yes' ? '<span class="badge badge-critical"><span class="dot"></span>Yes</span>' : '<span class="badge badge-ok"><span class="dot"></span>No</span>'}</td>
         <td style="color:var(--charcoal-soft);font-size:12.5px;">${escapeHtml(r.Reason) || '—'}</td>
@@ -2612,15 +2669,44 @@ async function loadAttrition() {
 
     const deptCounts = {};
     records.forEach(r => { const d = r.Department || 'Unknown'; deptCounts[d] = (deptCounts[d] || 0) + 1; });
-    const topDept = Object.keys(deptCounts).sort((a, b) => deptCounts[b] - deptCounts[a])[0];
+    const deptSorted = Object.keys(deptCounts).sort((a, b) => deptCounts[b] - deptCounts[a]);
+    const topDept = deptSorted[0];
+
+    const reasonCountsAll = {};
+    records.forEach(r => { const rs = r.Reason || 'Unspecified'; reasonCountsAll[rs] = (reasonCountsAll[rs] || 0) + 1; });
+    const reasonSortedAll = Object.keys(reasonCountsAll).sort((a, b) => reasonCountsAll[b] - reasonCountsAll[a]);
+
     const reasonCounts = {};
     records.filter(r => r.Regrettable === 'Yes').forEach(r => { const rs = r.Reason || 'Unspecified'; reasonCounts[rs] = (reasonCounts[rs] || 0) + 1; });
     const topReason = Object.keys(reasonCounts).sort((a, b) => reasonCounts[b] - reasonCounts[a])[0];
     const regrettablePct = totalExits > 0 ? ((totalRegrettable / totalExits) * 100).toFixed(0) : null;
+
+    if (deptSorted.length > 0) {
+      destroyChart('chartAttritionByDept');
+      const ctxD = document.getElementById('chartAttritionByDept').getContext('2d');
+      chartInstances['chartAttritionByDept'] = new Chart(ctxD, {
+        type: 'bar',
+        data: { labels: deptSorted, datasets: [{ label: 'Exits', data: deptSorted.map(d => deptCounts[d]), backgroundColor: CHART_COLORS.navy }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+      });
+    }
+    if (reasonSortedAll.length > 0) {
+      destroyChart('chartAttritionByReason');
+      const ctxR = document.getElementById('chartAttritionByReason').getContext('2d');
+      chartInstances['chartAttritionByReason'] = new Chart(ctxR, {
+        type: 'pie',
+        data: {
+          labels: reasonSortedAll,
+          datasets: [{ data: reasonSortedAll.map(r => reasonCountsAll[r]), backgroundColor: [CHART_COLORS.navy, CHART_COLORS.red, CHART_COLORS.gold, CHART_COLORS.teal, CHART_COLORS.charcoalSoft, '#8765C9', '#3D6FC4', '#D15C72'] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { family: 'Inter', size: 11 }, boxWidth: 12 } } } }
+      });
+    }
+
     const attrInsightEl = document.getElementById('attritionInsight');
     if (attrInsightEl) {
       attrInsightEl.innerHTML = insightBox(
-        `${totalExits} exit${totalExits === 1 ? '' : 's'} logged across ${Object.keys(summary).length} department${Object.keys(summary).length === 1 ? '' : 's'}. ${regrettablePct !== null ? `${regrettablePct}% of exits are flagged regrettable — industry benchmarks (Mordor Intelligence, real-estate & construction services) typically put healthy regrettable-attrition share well under 50% of total exits, so ${regrettablePct > 50 ? 'this is on the higher side and worth root-causing rather than treating as normal churn' : 'this is within a broadly acceptable range, though any single regrettable exit in a key role is worth a stay-conversation review'}.` : ''} ${topDept ? `${escapeHtml(topDept)} has logged the most exits (${deptCounts[topDept]}) of any department — if this repeats next quarter, it points to a department-specific retention issue (manager, workload, or comp) rather than company-wide attrition pressure.` : ''} ${topReason ? `Among regrettable exits, "${escapeHtml(topReason)}" is the most cited reason — this is the single highest-leverage lever for an exit-interview-driven retention action plan right now.` : ''}`,
+        `${totalExits} exit${totalExits === 1 ? '' : 's'} logged across ${deptSorted.length} department${deptSorted.length === 1 ? '' : 's'}. ${regrettablePct !== null ? `${regrettablePct}% of exits are flagged regrettable — industry benchmarks (Mordor Intelligence, real-estate & construction services) typically put healthy regrettable-attrition share well under 50% of total exits, so ${regrettablePct > 50 ? 'this is on the higher side and worth root-causing rather than treating as normal churn' : 'this is within a broadly acceptable range, though any single regrettable exit in a key role is worth a stay-conversation review'}.` : ''} Exits by department: ${deptSorted.map(d => `${escapeHtml(d)} (${deptCounts[d]})`).join(', ')}${topDept ? ` — ${escapeHtml(topDept)} leads, and if that repeats next quarter it points to a department-specific retention issue (manager, workload, or comp) rather than company-wide attrition pressure` : ''}. Exit reasons break down as: ${reasonSortedAll.map(r => `${escapeHtml(r)} (${reasonCountsAll[r]})`).join(', ')}.${topReason ? ` Among regrettable exits specifically, "${escapeHtml(topReason)}" is the most cited reason — the single highest-leverage lever for an exit-interview-driven retention action plan right now.` : ''}`,
         'rose'
       );
     }
@@ -4240,37 +4326,6 @@ async function updateCriticalItemStatus(itemId, newStatus, selectEl) {
     selectEl.disabled = false;
   }
 }
-
-// --- Add Event ---
-document.getElementById('evtFormSubmit').addEventListener('click', async () => {
-  resetFormMessages('evt');
-  const name = document.getElementById('evtName').value.trim();
-  const date = document.getElementById('evtDate').value;
-  if (!name || !date) {
-    showFormError('evt', 'Event name and date are required.');
-    return;
-  }
-  const payload = {
-    Event_Name: name,
-    Event_Date: date,
-    Department: document.getElementById('evtDepartment').value.trim(),
-    Owner: document.getElementById('evtOwner').value.trim(),
-    Notes: document.getElementById('evtNotes').value.trim()
-  };
-  const btn = document.getElementById('evtFormSubmit');
-  setButtonSaving(btn, true);
-  try {
-    const result = await apiPost('addEvent', payload);
-    showFormSuccess('evt', `Event saved (ID: ${result.id}).`);
-    document.getElementById('evtForm').reset();
-    await loadEvents();
-    setTimeout(() => closeModal('modalEvent'), 1200);
-  } catch (err) {
-    showFormError('evt', err.message);
-  } finally {
-    setButtonSaving(btn, false, 'Save event');
-  }
-});
 
 // --- Add Event Budget ---
 document.getElementById('budFormSubmit').addEventListener('click', async () => {
