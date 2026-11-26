@@ -809,6 +809,7 @@
       <div class="panel-body" id="deptSummary">
         <div class="loading-state"><div class="spinner"></div>Loading departments…</div>
       </div>
+      <div class="panel-body padded" style="padding-top:0;" id="overviewInsight"></div>
     </div>
   </section>
 
@@ -836,6 +837,7 @@
       <div class="table-scroll" id="peopleTableWrap">
         <div class="loading-state"><div class="spinner"></div>Loading employees…</div>
       </div>
+      <div class="panel-body padded" id="peopleInsight"></div>
     </div>
   </section>
 
@@ -895,6 +897,7 @@
             <div class="view-sub" style="margin:0;">±25% from designation median</div>
           </div>
           <div class="table-scroll" id="compOutlierTableWrap"></div>
+          <div class="panel-body padded" id="compInsight"></div>
         </div>
       </div>
     </div>
@@ -921,6 +924,7 @@
         <div class="table-scroll" id="riskShortlistWrap">
           <div class="loading-state"><div class="spinner"></div>Loading risk scores…</div>
         </div>
+        <div class="panel-body padded" id="riskInsight"></div>
       </div>
     </div>
 
@@ -948,6 +952,7 @@
           <div class="view-sub" style="margin:0;">Managers far above/below the average direct-report count</div>
         </div>
         <div class="table-scroll" id="spanOutlierWrap"></div>
+        <div class="panel-body padded" id="workforceInsight"></div>
       </div>
     </div>
 
@@ -970,6 +975,7 @@
         <div class="table-scroll" id="chronicLateWrap">
           <div class="loading-state"><div class="spinner"></div>Loading compliance data…</div>
         </div>
+        <div class="panel-body padded" id="complianceHealthInsight"></div>
       </div>
     </div>
   </section>
@@ -1066,6 +1072,7 @@
       <div class="table-scroll" id="eventBudgetWrap">
         <div class="loading-state"><div class="spinner"></div>Loading budget data…</div>
       </div>
+      <div class="panel-body padded" id="eventsInsight"></div>
     </div>
   </section>
 
@@ -1088,6 +1095,7 @@
     <div class="panel" id="orgBudgetPanel" style="display:none;">
       <div class="panel-head"><div class="panel-title">Department CTC — Budgeted vs Actual</div></div>
       <div class="table-scroll" id="orgBudgetWrap"></div>
+      <div class="panel-body padded" id="financialsInsight"></div>
     </div>
   </section>
 
@@ -1108,6 +1116,7 @@
       <div class="table-scroll" id="attritionTableWrap">
         <div class="loading-state"><div class="spinner"></div>Loading attrition data…</div>
       </div>
+      <div class="panel-body padded" id="attritionInsight"></div>
     </div>
   </section>
 
@@ -1871,6 +1880,18 @@ async function loadOverview() {
         <tbody>${rows || renderEmptyRow(3, 'No department data available.')}</tbody>
       </table>
     `;
+
+    const sortedDepts = Object.entries(deptSummary).sort((a,b) => b[1].count - a[1].count);
+    const [topDeptName, topDeptInfo] = sortedDepts[0] || [null, null];
+    const topDeptShare = topDeptInfo ? Math.round((topDeptInfo.count / total) * 100) : 0;
+    const flagRate = total ? Math.round((flagged / total) * 100) : 0;
+    const overdueLine = criticalCount > 0
+      ? `<strong>${criticalCount} item${criticalCount > 1 ? 's are' : ' is'} already overdue 7+ days</strong> — in a compliance-heavy sector like real estate, items left open this long are usually where penalties or renewal lapses actually happen, not the items still inside their window.`
+      : `No item is overdue 7+ days right now — the real test is whether that stays true after the next renewal cycle, not just today's snapshot.`;
+    document.getElementById('overviewInsight').innerHTML = insightBox(
+      `${topDeptName ? `<strong>${escapeHtml(topDeptName)}</strong> carries ${topDeptShare}% of headcount (${topDeptInfo.count} of ${total})` : 'Headcount is spread across departments'} — a single department holding much over a third of the org is worth a quick gut-check on whether its manager span and succession bench can actually support that concentration. ${flagRate > 5 ? `Data quality flags sit at ${flagRate}% of records — worth a cleanup pass before these numbers get quoted in a board deck.` : `Data quality looks clean at ${flagRate}% flagged.`} ${overdueLine}`,
+      'blue'
+    );
   } catch (err) {
     statsEl.innerHTML = `<div class="error-state">Could not load overview. ${escapeHtml(err.message)}</div>`;
     deptEl.innerHTML = '';
@@ -1896,6 +1917,24 @@ async function loadPeople() {
     };
     populatePeopleFilters(employees);
     renderPeopleTable(employees);
+
+    const insightEl = document.getElementById('peopleInsight');
+    if (insightEl) {
+      const total = employees.length;
+      const deptCounts = {};
+      employees.forEach(e => { if (e.Department) deptCounts[e.Department] = (deptCounts[e.Department] || 0) + 1; });
+      const deptEntries = Object.entries(deptCounts).sort((a,b) => b[1]-a[1]);
+      const [topDept, topCount] = deptEntries[0] || [null, 0];
+      const avgTenure = (() => {
+        const yrs = employees.map(e => tenureYearsDecimal(e[peopleResolvedFields.joined] || e.Date_Joined_Mangalam)).filter(y => y !== null);
+        return yrs.length ? (yrs.reduce((a,b)=>a+b,0) / yrs.length) : null;
+      })();
+      const flaggedCount = employees.filter(e => e.Data_Quality_Flag && e.Data_Quality_Flag.trim()).length;
+      insightEl.innerHTML = insightBox(
+        `${total} active records${topDept ? `, concentrated most in <strong>${escapeHtml(topDept)}</strong> (${topCount}, ${Math.round(topCount/total*100)}%)` : ''}. ${avgTenure !== null ? `Average tenure across the roster is ${avgTenure.toFixed(1)} years — ` : ''}${avgTenure !== null && avgTenure < 2 ? 'a sub-2-year average usually means either rapid recent growth or a retention problem; check the Attrition tab\'s exit reasons before assuming it\'s the former.' : avgTenure !== null ? 'a healthy sign if it\'s rising year over year, a concern if it\'s been flat despite growth.' : ''} ${flaggedCount > 0 ? `${flaggedCount} record${flaggedCount>1?'s':''} carry a data-quality flag — worth clearing before these feed into Analytics or Financials, since blank fields silently drop rows from averages rather than erroring.` : ''}`,
+        'violet'
+      );
+    }
   } catch (err) {
     wrap.innerHTML = `<div class="error-state">Could not load employees. ${escapeHtml(err.message)}</div>`;
   }
@@ -2442,6 +2481,21 @@ async function loadEvents() {
           <thead><tr><th>Event</th><th>Department</th><th>Planned</th><th>Actual</th><th>Variance</th></tr></thead>
           <tbody>${budRows || renderEmptyRow(5, 'No event budgets recorded yet.')}</tbody>
         </table>`;
+
+      const parseNum = v => { const n = parseFloat(String(v).replace(/[,₹\s]/g, '')); return isNaN(n) ? 0 : n; };
+      const overBudget = budgets.filter(b => Number(b.Variance) > 0);
+      const totalPlanned = budgets.reduce((s, b) => s + parseNum(b.Budget_Planned), 0);
+      const totalActual = budgets.reduce((s, b) => s + parseNum(b.Budget_Actual), 0);
+      const totalOverspend = budgets.reduce((s, b) => s + Math.max(0, parseNum(b.Budget_Actual) - parseNum(b.Budget_Planned)), 0);
+      const overallVarPct = totalPlanned > 0 ? (((totalActual - totalPlanned) / totalPlanned) * 100).toFixed(1) : null;
+      const worstEvent = overBudget.length ? overBudget.reduce((a, b) => (Number(b.Variance_Percent) > Number(a.Variance_Percent) ? b : a)) : null;
+      const insightEl = document.getElementById('eventsInsight');
+      if (insightEl) {
+        insightEl.innerHTML = insightBox(
+          `${budgets.length} tracked event${budgets.length === 1 ? '' : 's'} ${overallVarPct !== null ? `are running at ${overallVarPct > 0 ? '+' : ''}${overallVarPct}% against planned spend overall` : 'have budget data recorded'}. ${overBudget.length > 0 ? `${overBudget.length} of ${budgets.length} event${budgets.length === 1 ? '' : 's'} ${overBudget.length === 1 ? 'is' : 'are'} over budget, with a combined overspend of ₹${totalOverspend.toLocaleString('en-IN')}${worstEvent ? ` — ${escapeHtml(worstEvent.Event_Name)} (${escapeHtml(worstEvent.Department)}) is the biggest outlier at +${worstEvent.Variance_Percent}% over plan` : ''}. Repeated overspend on the same department's events is usually a planning-estimate problem, not a one-off — worth tightening next cycle's budget baseline for that department rather than just flagging the variance after the fact.` : 'No event is currently running over its planned budget — spend discipline looks solid across the calendar.'}`,
+          'blue'
+        );
+      }
     }
   } catch (err) {
     evWrap.innerHTML = `<div class="error-state">Could not load events. ${escapeHtml(err.message)}</div>`;
@@ -2496,6 +2550,25 @@ async function loadFinancials() {
         <thead><tr><th>Department</th><th>FY</th><th>CTC Budgeted</th><th>CTC Actual</th><th>Headcount Budgeted</th><th>Headcount Actual</th></tr></thead>
         <tbody>${oRows || renderEmptyRow(6, 'No department budget data entered yet.')}</tbody>
       </table>`;
+
+    const parseNum = v => { const n = parseFloat(String(v).replace(/[,₹\s]/g, '')); return isNaN(n) ? null : n; };
+    const validYears = yearly.filter(y => y.Manpower_Cost_Percent_Of_Revenue !== null && y.Manpower_Cost_Percent_Of_Revenue !== undefined && y.Manpower_Cost_Percent_Of_Revenue !== '');
+    let trendPhrase = 'not enough year-on-year data yet to establish a trend';
+    if (validYears.length >= 2) {
+      const first = parseFloat(validYears[0].Manpower_Cost_Percent_Of_Revenue);
+      const last = parseFloat(validYears[validYears.length - 1].Manpower_Cost_Percent_Of_Revenue);
+      const delta = (last - first).toFixed(1);
+      trendPhrase = `manpower cost as a share of revenue has ${last > first ? `risen by ${Math.abs(delta)} percentage points` : last < first ? `fallen by ${Math.abs(delta)} percentage points` : 'held essentially flat'} from ${escapeHtml(validYears[0].FY)} (${first}%) to ${escapeHtml(validYears[validYears.length - 1].FY)} (${last}%)`;
+    }
+    const orgRows = (orgBudget && !orgBudget.error) ? orgBudget : [];
+    const overBudgetDepts = orgRows.filter(o => { const b = parseNum(o.CTC_Budgeted), a = parseNum(o.CTC_Actual); return b !== null && a !== null && a > b; });
+    const finInsightEl = document.getElementById('financialsInsight');
+    if (finInsightEl) {
+      finInsightEl.innerHTML = insightBox(
+        `Across ${yearly.length} tracked fiscal year${yearly.length === 1 ? '' : 's'}, ${trendPhrase}. ${validYears.length ? (parseFloat(validYears[validYears.length-1].Manpower_Cost_Percent_Of_Revenue) > 35 ? 'A manpower cost ratio above roughly 35% of revenue is on the high side for a real-estate developer\'s overhead structure and is worth benchmarking against comparable Pune-market developers.' : 'The current ratio is within a reasonable range for a real-estate development business, where manpower is typically a smaller share of cost than land and construction.') : ''} ${overBudgetDepts.length > 0 ? `${overBudgetDepts.length} department${overBudgetDepts.length === 1 ? ' is' : 's are'} running over its CTC budget for the year — worth reviewing whether this reflects planned hiring that outpaced the budget cycle, or unbudgeted hikes/backfills.` : 'Department-wise CTC spend is tracking within budget across the board.'}`,
+        'gold'
+      );
+    }
   } catch (err) {
     gate.innerHTML = `<div class="error-state">Could not load financials. ${escapeHtml(err.message)}</div>`;
   }
@@ -2536,6 +2609,21 @@ async function loadAttrition() {
         <thead><tr><th>Name</th><th>Department</th><th>Designation</th><th>Exit date</th><th>Type</th><th>Regrettable</th><th>Reason</th></tr></thead>
         <tbody>${rows || renderEmptyRow(7, 'No exits logged yet.')}</tbody>
       </table>`;
+
+    const deptCounts = {};
+    records.forEach(r => { const d = r.Department || 'Unknown'; deptCounts[d] = (deptCounts[d] || 0) + 1; });
+    const topDept = Object.keys(deptCounts).sort((a, b) => deptCounts[b] - deptCounts[a])[0];
+    const reasonCounts = {};
+    records.filter(r => r.Regrettable === 'Yes').forEach(r => { const rs = r.Reason || 'Unspecified'; reasonCounts[rs] = (reasonCounts[rs] || 0) + 1; });
+    const topReason = Object.keys(reasonCounts).sort((a, b) => reasonCounts[b] - reasonCounts[a])[0];
+    const regrettablePct = totalExits > 0 ? ((totalRegrettable / totalExits) * 100).toFixed(0) : null;
+    const attrInsightEl = document.getElementById('attritionInsight');
+    if (attrInsightEl) {
+      attrInsightEl.innerHTML = insightBox(
+        `${totalExits} exit${totalExits === 1 ? '' : 's'} logged across ${Object.keys(summary).length} department${Object.keys(summary).length === 1 ? '' : 's'}. ${regrettablePct !== null ? `${regrettablePct}% of exits are flagged regrettable — industry benchmarks (Mordor Intelligence, real-estate & construction services) typically put healthy regrettable-attrition share well under 50% of total exits, so ${regrettablePct > 50 ? 'this is on the higher side and worth root-causing rather than treating as normal churn' : 'this is within a broadly acceptable range, though any single regrettable exit in a key role is worth a stay-conversation review'}.` : ''} ${topDept ? `${escapeHtml(topDept)} has logged the most exits (${deptCounts[topDept]}) of any department — if this repeats next quarter, it points to a department-specific retention issue (manager, workload, or comp) rather than company-wide attrition pressure.` : ''} ${topReason ? `Among regrettable exits, "${escapeHtml(topReason)}" is the most cited reason — this is the single highest-leverage lever for an exit-interview-driven retention action plan right now.` : ''}`,
+        'rose'
+      );
+    }
   } catch (err) {
     wrap.innerHTML = `<div class="error-state">Could not load attrition data. ${escapeHtml(err.message)}</div>`;
   }
@@ -2611,8 +2699,16 @@ function naturalGradeSort(a, b) {
  * this function never sees). Kept short and specific to what that panel
  * type reveals.
  */
-function insightBox(html) {
-  return `<div style="margin-top:14px; padding:12px 14px; background:#F4F1E8; border-left:3px solid var(--gold); border-radius:0 6px 6px 0; font-size:12.5px; line-height:1.6; color:var(--charcoal);"><div style="color:#8f6c1e; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:4px;">CHRO insight</div>${html}</div>`;
+const INSIGHT_VARIANTS = {
+  gold: { bg: '#FBF4E3', border: '#D9A72C', label: '#8f6c1e' },
+  teal: { bg: '#E7F5F1', border: '#1D8A6E', label: '#146653' },
+  blue: { bg: '#EAF1FC', border: '#3D6FC4', label: '#2A4E8F' },
+  rose: { bg: '#FBEAEE', border: '#D15C72', label: '#A03A4F' },
+  violet:{ bg: '#F1ECFA', border: '#8765C9', label: '#5E3F99' }
+};
+function insightBox(html, variant) {
+  const v = INSIGHT_VARIANTS[variant] || INSIGHT_VARIANTS.gold;
+  return `<div style="margin-top:14px; padding:12px 14px; background:${v.bg}; border-left:3px solid ${v.border}; border-radius:0 8px 8px 0; font-size:12.5px; line-height:1.6; color:var(--charcoal);"><div style="color:${v.label}; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:4px; display:flex; align-items:center; gap:5px;"><span style="font-size:12px;">✦</span>CHRO insight</div>${html}</div>`;
 }
 
 function untrackedNote(msg) {
@@ -3759,6 +3855,14 @@ async function loadCompensationAnalytics() {
         <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>CTC</th><th>Compa-ratio</th></tr></thead>
         <tbody>${outlierRows || renderEmptyRow(5, 'No pay outliers detected — all salaries within 25% of their designation median.')}</tbody>
       </table>`;
+
+    const above = data.outliers.filter(o => o.CTC > o.Designation_Median).length;
+    const below = data.outliers.length - above;
+    const coveragePct = Math.round((data.coverage.employees_with_comp_data / data.coverage.total_employees) * 100);
+    document.getElementById('compInsight').innerHTML = insightBox(
+      `${data.outliers.length ? `${data.outliers.length} pay outliers found — ${above} paid above their designation median, ${below} below.${above > below ? ' A cluster above median is usually market-correction or retention counters stacking up over time; check whether they\'re concentrated in one or two designations before assuming it\'s broad pay drift.' : below > 0 ? ' Employees paid meaningfully below their designation median are flight risks the moment a comparable offer appears — worth cross-checking this list against the Attrition Risk shortlist.' : ''}` : 'No pay outliers detected — salaries are tightly banded around each designation\'s median, which is healthy but also worth sanity-checking against market data so "consistent" doesn\'t mean "consistently behind."'} Comp data coverage is ${coveragePct}% of headcount${coveragePct < 90 ? ' — the uncovered employees are invisible to every analysis on this tab, so they could be hiding outliers you can\'t currently see.' : '.'}`,
+      'gold'
+    );
   } catch (err) {
     gate.innerHTML = `<div class="error-state">Could not load compensation analytics. ${escapeHtml(err.message)}</div>`;
     analyticsLoaded.comp = false;
@@ -3881,6 +3985,14 @@ async function loadAttritionRisk() {
         <thead><tr><th>Name</th><th>Designation</th><th>Department</th><th>Manager</th><th>Risk score</th><th>Reasons</th></tr></thead>
         <tbody>${rows || renderEmptyRow(6, 'No employees currently flagged at Medium or High attrition risk.')}</tbody>
       </table>`;
+
+    const mgrCounts = {};
+    data.flight_risk_shortlist.forEach(s => { if (s.Manager) mgrCounts[s.Manager] = (mgrCounts[s.Manager] || 0) + 1; });
+    const topMgr = Object.entries(mgrCounts).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('riskInsight').innerHTML = insightBox(
+      `${high > 0 ? `<strong>${high} High-risk employee${high>1?'s':''}</strong> on the shortlist right now.` : 'No High-risk employees currently flagged — Medium-risk is where retention effort is cheapest, since it\'s preventable before it becomes a resignation letter.'} ${topMgr && topMgr[1] > 1 ? `${topMgr[1]} of the flagged employees report to <strong>${escapeHtml(topMgr[0])}</strong> — when risk clusters under one manager rather than spreading evenly, the real driver is usually management style, not individual circumstances (AceNgage exit-interview data consistently shows supervisor behavior, not pay, as the leading real driver of exits).` : ''} Replacing a mid-level employee typically costs 40–200% of their annual salary once hiring, onboarding, and lost-productivity time are counted — the shortlist above is effectively a prioritized list of where a retention conversation this week is worth more than a counteroffer next month.`,
+      'rose'
+    );
   } catch (err) {
     wrap.innerHTML = `<div class="error-state">Could not load attrition risk scores. ${escapeHtml(err.message)}</div>`;
     analyticsLoaded.risk = false;
@@ -3957,6 +4069,12 @@ async function loadWorkforcePlanning() {
         <thead><tr><th>Manager</th><th>Direct reports</th><th>Note</th></tr></thead>
         <tbody>${spanRows || renderEmptyRow(3, 'No span-of-control outliers detected.')}</tbody>
       </table>`;
+
+    const totalGapDepts = data.headcount_gap.length;
+    document.getElementById('workforceInsight').innerHTML = insightBox(
+      `${understaffed > 0 ? `${understaffed} of ${totalGapDepts} tracked department${totalGapDepts>1?'s are':' is'} running below budgeted headcount — ` : ''}${understaffed > 0 ? 'in a project-based business, an understaffed execution function (Engineering, Quality, Safety) compounds into project delay faster than an understaffed support function does, so worth weighting these by which department they\'re in, not just the raw count.' : 'headcount is tracking close to budget across departments — worth re-checking this after any project handover, since gaps tend to open quietly during busy phases.'} ${data.span_of_control_outliers.length > 0 ? `${data.span_of_control_outliers.length} manager${data.span_of_control_outliers.length>1?'s carry':' carries'} a direct-report count well outside the ${data.span_of_control_average} average — a manager stretched far beyond average span is a leading indicator for both their own burnout and their team\'s attrition risk, worth cross-checking against the Attrition Risk shortlist.` : `Span of control is evenly distributed around the ${data.span_of_control_average} average — no manager is structurally overloaded right now.`}`,
+      'teal'
+    );
   } catch (err) {
     gapWrap.innerHTML = `<div class="error-state">Could not load workforce planning data. ${escapeHtml(err.message)}</div>`;
     analyticsLoaded.workforce = false;
@@ -4016,6 +4134,17 @@ async function loadComplianceHealth() {
         <thead><tr><th>Tag</th><th>Item</th><th>Owner</th><th>Recurrence</th><th>Overdue</th></tr></thead>
         <tbody>${lateRows || renderEmptyRow(5, 'No chronically late recurring items right now.')}</tbody>
       </table>`;
+
+    let worstTag = null, worstTagCritical = -1;
+    tags.forEach(t => {
+      const c = data.by_tag[t].critical || 0;
+      if (c > worstTagCritical) { worstTagCritical = c; worstTag = t; }
+    });
+    const chronicCount = data.chronically_late_items.length;
+    document.getElementById('complianceHealthInsight').innerHTML = insightBox(
+      `On-time filing is running at ${scoreDisplay !== '—' ? scoreDisplay : 'an unestablished rate'} across tracked statutory and billing items. ${chronicCount > 0 ? `${chronicCount} item${chronicCount>1?'s have':' has'} slipped into a chronic-delay pattern rather than a one-off miss — that distinction matters, because a chronic-late item usually points to an owner, vendor, or process bottleneck rather than a single bad month, so it's the right place to intervene structurally.` : 'No item has crossed into chronic-delay territory right now — the occasional miss here is normal, but worth watching so it doesn\'t become a pattern.'} ${worstTag && worstTagCritical > 0 ? `${escapeHtml(worstTag)} items carry the most critical-stage overdues (${worstTagCritical}) of any category — statutory and compliance filings in this bucket carry direct penalty and reputational exposure under the Shops & Establishments Act and related labour-law filings, so this is the category to triage first.` : 'No single category is carrying a disproportionate share of critical overdues right now — risk is evenly spread rather than concentrated.'}`,
+      'rose'
+    );
   } catch (err) {
     wrap.innerHTML = `<div class="error-state">Could not load compliance health data. ${escapeHtml(err.message)}</div>`;
     analyticsLoaded.compliance = false;
